@@ -1,4 +1,30 @@
 {
-  "indexes": [],
+  "indexes": [
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "petId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "medications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "petId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "weights",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "petId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    }
+  ],
   "fieldOverrides": []
 }

@@ -12,11 +12,10 @@ import {
   DocumentData,
   QueryDocumentSnapshot 
 } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
-import { Pet } from '../types';
+import { db } from '@/lib/firebase';
+import { Pet } from '@/types';
 import { 
   Home,
-  PlusCircle,
   Settings,
   PawPrint,
   Calendar,
@@ -25,6 +24,10 @@ import {
   Clock,
   FileText
 } from 'lucide-react';
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { AddPetDialog } from './AddPetDialog';
 
 export default function Sidebar() {
   const [pets, setPets] = useState<Pet[]>([]);
@@ -55,9 +58,8 @@ export default function Sidebar() {
     return () => unsubscribe();
   }, [selectedPet]);
 
-  const navigationItems = [
+  const mainNavItems = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'Add Pet', href: '/pets/new', icon: PlusCircle },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
 
@@ -71,79 +73,89 @@ export default function Sidebar() {
   ];
 
   return (
-    <div className="flex flex-col w-64 bg-white h-screen border-r">
-      <div className="p-4">
-        <h1 className="text-2xl font-bold text-gray-800">PetCare</h1>
+    <div className="flex h-screen w-72 flex-col border-r bg-card">
+      <div className="p-6">
+        <h1 className="text-2xl font-bold">PetCare</h1>
       </div>
 
-      <nav className="flex-1 space-y-1 p-2">
-        {navigationItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center px-4 py-2 text-sm rounded-lg ${
-                pathname === item.href
-                  ? 'bg-blue-100 text-blue-600'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <Icon className="mr-3 h-5 w-5" />
-              {item.name}
-            </Link>
-          );
-        })}
-
-        <div className="pt-4">
-          <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            My Pets
-          </div>
-          {pets.length === 0 ? (
-            <p className="px-4 py-2 text-sm text-gray-500">No pets added yet</p>
-          ) : (
-            pets.map((pet) => (
-              <button
-                key={pet.id}
-                onClick={() => setSelectedPet(pet.id)}
-                className={`w-full flex items-center px-4 py-2 text-sm rounded-lg ${
-                  selectedPet === pet.id
-                    ? 'bg-blue-100 text-blue-600'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <PawPrint className="mr-3 h-5 w-5" />
-                {pet.name}
-              </button>
-            ))
-          )}
-        </div>
-
-        {selectedPet && (
-          <div className="pt-4">
-            <div className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Pet Sections
-            </div>
-            {petSections.map((section) => {
-              const Icon = section.icon;
+      <ScrollArea className="flex-1 px-3">
+        <div className="space-y-8">
+          {/* Main Navigation */}
+          <div className="space-y-2">
+            {mainNavItems.map((item) => {
+              const Icon = item.icon;
               return (
-                <Link
-                  key={section.name}
-                  href={section.href}
-                  className={`flex items-center px-4 py-2 text-sm rounded-lg ${
-                    pathname === section.href
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {section.name}
+                <Link key={item.name} href={item.href}>
+                  <Button
+                    variant={pathname === item.href ? "secondary" : "ghost"}
+                    className={cn(
+                      "w-full justify-start",
+                      pathname === item.href && "bg-accent"
+                    )}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {item.name}
+                  </Button>
                 </Link>
               );
             })}
           </div>
-        )}
-      </nav>
+
+          {/* Pets Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold tracking-tight">My Pets</h2>
+              <AddPetDialog />
+            </div>
+
+            {/* Pets List */}
+            <div className="space-y-1">
+              {pets.length === 0 ? (
+                <p className="text-sm text-muted-foreground p-2">
+                  No pets added yet
+                </p>
+              ) : (
+                pets.map((pet) => (
+                  <Button
+                    key={pet.id}
+                    variant={selectedPet === pet.id ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => setSelectedPet(pet.id)}
+                  >
+                    <PawPrint className="mr-2 h-4 w-4" />
+                    {pet.name}
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Pet Sections */}
+          {selectedPet && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Pet Details
+              </h2>
+              <div className="space-y-1">
+                {petSections.map((section) => {
+                  const Icon = section.icon;
+                  return (
+                    <Link key={section.name} href={section.href}>
+                      <Button
+                        variant={pathname === section.href ? "secondary" : "ghost"}
+                        className="w-full justify-start"
+                      >
+                        <Icon className="mr-2 h-4 w-4" />
+                        {section.name}
+                      </Button>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
