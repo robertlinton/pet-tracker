@@ -1,3 +1,5 @@
+// types/index.ts
+
 export interface Pet {
     id: string;
     name: string;

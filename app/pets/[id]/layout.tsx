@@ -1,3 +1,5 @@
+// app/pets/[id]/layout.tsx
+
 import { Suspense } from 'react'
 import PetOverviewLoading from './loading'
 
