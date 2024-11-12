@@ -2,13 +2,14 @@
 
 'use client';
 
-import { use, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { Pet, Appointment, MedicalRecord, WeightRecord } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, Pill, Weight, Edit, Cake, PawPrint } from 'lucide-react';
@@ -20,15 +21,27 @@ interface PageProps {
 }
 
 export default function PetOverviewPage({ params }: PageProps) {
-  const { id } = use(params);
   const [pet, setPet] = useState<Pet | null>(null);
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([]);
   const [recentMedications, setRecentMedications] = useState<MedicalRecord[]>([]);
   const [weightHistory, setWeightHistory] = useState<WeightRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const [id, setId] = useState<string | null>(null);
 
+  // Resolve params to get the pet ID
   useEffect(() => {
+    params.then(resolvedParams => {
+      setId(resolvedParams.id);
+    }).catch(error => {
+      console.error("Failed to resolve params:", error);
+    });
+  }, [params]);
+
+  // Fetch pet data only when ID is available
+  useEffect(() => {
+    if (!id) return;
+
     const fetchPetData = async () => {
       try {
         const petDoc = await getDoc(doc(db, 'pets', id));
@@ -132,16 +145,18 @@ export default function PetOverviewPage({ params }: PageProps) {
     }
 
     if (years === 0 && months === 0) {
-      return "Less than a month old";
+      return { text: "Less than a month old", tooltip: "Born recently" };
     }
     if (years === 0) {
-      return `${months} month${months > 1 ? 's' : ''} old`;
+      return { text: `${months} month${months > 1 ? 's' : ''} old`, tooltip: `${months} months since birth` };
     }
     if (months === 0) {
-      return `${years} year${years > 1 ? 's' : ''} old`;
+      return { text: `${years} year${years > 1 ? 's' : ''} old`, tooltip: `${years} years since birth` };
     }
-    return `${years} year${years > 1 ? 's' : ''} and ${months} month${months > 1 ? 's' : ''} old`;
+    return { text: `${years} year${years > 1 ? 's' : ''} and ${months} month${months > 1 ? 's' : ''} old`, tooltip: `${years} years and ${months} months since birth` };
   };
+
+  const ageInfo = calculateAge(pet.birthDate);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -178,7 +193,12 @@ export default function PetOverviewPage({ params }: PageProps) {
             <Cake className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{calculateAge(pet.birthDate)}</div>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="text-2xl font-bold cursor-pointer">{ageInfo.text}</div>
+              </TooltipTrigger>
+              <TooltipContent>{ageInfo.tooltip}</TooltipContent>
+            </Tooltip>
             <p className="text-xs text-muted-foreground">Born {new Date(pet.birthDate).toLocaleDateString()}</p>
           </CardContent>
         </Card>
