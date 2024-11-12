@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { use, useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { Pet, Appointment, MedicalRecord, WeightRecord } from '@/types';
@@ -10,18 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast"; // Updated import path
-import { 
-  Calendar,
-  Pill,
-  Weight,
-  Edit,
-  Cake,
-  PawPrint
-} from 'lucide-react';
-import { use } from 'react';
+import { useToast } from "@/hooks/use-toast";
+import { Calendar, Pill, Weight, Edit, Cake, PawPrint } from 'lucide-react';
 import { EditPetDialog } from "@/components/EditPetDialog";
-import { capitalizeFirst } from "@/lib/utils"; // New import
+import { capitalizeFirst } from "@/lib/utils";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -39,16 +31,11 @@ export default function PetOverviewPage({ params }: PageProps) {
   useEffect(() => {
     const fetchPetData = async () => {
       try {
-        // Get pet details
         const petDoc = await getDoc(doc(db, 'pets', id));
         if (petDoc.exists()) {
           setPet({ id: petDoc.id, ...petDoc.data() } as Pet);
         }
 
-        // Set up listeners for related data
-        const now = new Date();
-
-        // Simplified queries until indexes are created
         const appointmentsQuery = query(
           collection(db, 'appointments'),
           where('petId', '==', id),
@@ -67,7 +54,6 @@ export default function PetOverviewPage({ params }: PageProps) {
           limit(5)
         );
 
-        // Set up real-time listeners
         const unsubAppointments = onSnapshot(appointmentsQuery, (snapshot) => {
           const appointments: Appointment[] = [];
           snapshot.forEach((doc) => {
@@ -115,32 +101,50 @@ export default function PetOverviewPage({ params }: PageProps) {
   }, [id, toast]);
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-    </div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
   }
 
   if (!pet) {
-    return <div className="flex items-center justify-center h-screen">
-      <p>Pet not found</p>
-    </div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p>Pet not found</p>
+      </div>
+    );
   }
 
   const calculateAge = (birthDate: string) => {
     const birth = new Date(birthDate);
     const now = new Date();
-    const years = now.getFullYear() - birth.getFullYear();
-    const months = now.getMonth() - birth.getMonth();
-    
-    if (months < 0 || (months === 0 && now.getDate() < birth.getDate())) {
-      return years - 1;
+
+    let years = now.getFullYear() - birth.getFullYear();
+    let months = now.getMonth() - birth.getMonth();
+
+    if (months < 0) {
+      years -= 1;
+      months += 12;
     }
-    return years;
+    if (now.getDate() < birth.getDate()) {
+      months -= 1;
+    }
+
+    if (years === 0 && months === 0) {
+      return "Less than a month old";
+    }
+    if (years === 0) {
+      return `${months} month${months > 1 ? 's' : ''} old`;
+    }
+    if (months === 0) {
+      return `${years} year${years > 1 ? 's' : ''} old`;
+    }
+    return `${years} year${years > 1 ? 's' : ''} and ${months} month${months > 1 ? 's' : ''} old`;
   };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Pet Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center space-x-4">
           <Avatar className="h-24 w-24">
@@ -167,7 +171,6 @@ export default function PetOverviewPage({ params }: PageProps) {
         </EditPetDialog>
       </div>
 
-      {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -175,7 +178,7 @@ export default function PetOverviewPage({ params }: PageProps) {
             <Cake className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{calculateAge(pet.birthDate)} years</div>
+            <div className="text-2xl font-bold">{calculateAge(pet.birthDate)}</div>
             <p className="text-xs text-muted-foreground">Born {new Date(pet.birthDate).toLocaleDateString()}</p>
           </CardContent>
         </Card>
@@ -213,7 +216,6 @@ export default function PetOverviewPage({ params }: PageProps) {
         </Card>
       </div>
 
-      {/* Detailed Information */}
       <Tabs defaultValue="appointments" className="space-y-4">
         <TabsList>
           <TabsTrigger value="appointments">Appointments</TabsTrigger>
