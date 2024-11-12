@@ -12,8 +12,8 @@ import {
   DocumentData,
   QueryDocumentSnapshot 
 } from 'firebase/firestore';
-import { db, auth } from '../app/lib/firebase';
-import { Pet } from '../app/types';
+import { db, auth } from '../lib/firebase';
+import { Pet } from '../types';
 import { 
   Home,
   PlusCircle,

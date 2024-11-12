@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { db } from '../lib/firebase';
+import { db } from '../../lib/firebase';
 import { 
   collection, 
   query, 
@@ -14,7 +14,7 @@ import {
   limit
 } from 'firebase/firestore';
 import { Calendar, Clock, Activity, AlertCircle, PawPrint } from 'lucide-react';
-import { DashboardEvent } from '../types';
+import { DashboardEvent } from '../../types';
 import React from 'react';
 
 export default function DashboardPage() {
