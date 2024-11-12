@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/hooks/use-toast"; // Updated import path
 import { 
   Calendar,
   Pill,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { use } from 'react';
 import { EditPetDialog } from "@/components/EditPetDialog";
+import { capitalizeFirst } from "@/lib/utils"; // New import
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -154,7 +155,7 @@ export default function PetOverviewPage({ params }: PageProps) {
           <div>
             <h1 className="text-3xl font-bold">{pet.name}</h1>
             <p className="text-muted-foreground">
-              {pet.breed ? `${pet.species} • ${pet.breed}` : pet.species}
+              {pet.breed ? `${capitalizeFirst(pet.species)} • ${pet.breed}` : capitalizeFirst(pet.species)}
             </p>
           </div>
         </div>

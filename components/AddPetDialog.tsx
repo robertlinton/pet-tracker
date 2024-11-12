@@ -1,21 +1,16 @@
-// components/AddPetDialog.tsx
-
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { db, storage } from '@/lib/firebase';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { PlusCircle } from 'lucide-react';
+import { db } from '@/lib/firebase';
+import { Upload, X, PlusCircle } from 'lucide-react';
+import type { PutBlobResult } from '@vercel/blob';
+import { capitalizeFirst } from "@/lib/utils";
 
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Loading } from "@/components/ui/loading";
 import {
   Dialog,
   DialogContent,
@@ -25,13 +20,15 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   Form,
   FormControl,
@@ -40,17 +37,27 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form"
+} from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+import { Loading } from "@/components/ui/loading";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-import { addPetSchema } from '@/lib/schemas/pet';
+const addPetSchema = z.object({
+  name: z.string().min(1, "Pet name is required").max(50),
+  species: z.string().min(1, "Species is required"),
+  breed: z.string().optional(),
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+});
 
-type FormData = z.infer<typeof addPetSchema>
+type FormData = z.infer<typeof addPetSchema>;
 
 export function AddPetDialog() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
-  const [isUploading, setIsUploading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(addPetSchema),
@@ -59,30 +66,58 @@ export function AddPetDialog() {
       species: "",
       breed: "",
       birthDate: "",
-      imageUrl: "",
     },
   });
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setPreviewImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleImageUpload = async (file: File): Promise<string> => {
-    const imageRef = ref(storage, `pets/${Date.now()}-${file.name}`);
-    const uploadResult = await uploadBytes(imageRef, file);
-    return getDownloadURL(uploadResult.ref);
+    const response = await fetch(
+      `/api/pets/upload?filename=${file.name}`,
+      {
+        method: 'POST',
+        body: file,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to upload image');
+    }
+
+    const newBlob = await response.json() as PutBlobResult;
+    return newBlob.url;
   };
 
   const onSubmit = async (data: FormData) => {
     try {
-      setIsUploading(true);
+      setIsLoading(true);
       
-      // Get the file input element and its files
+      // Handle image upload if one was selected
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       const imageFile = fileInput?.files?.[0];
       
-      let imageUrl = "";
+      let imageUrl = null;
       if (imageFile) {
         imageUrl = await handleImageUpload(imageFile);
       }
 
-      // Add pet document to Firestore
+      // Add pet document
       await addDoc(collection(db, 'pets'), {
         ...data,
         imageUrl,
@@ -97,6 +132,7 @@ export function AddPetDialog() {
       });
 
       setIsOpen(false);
+      setPreviewImage(null);
       form.reset();
       router.refresh();
 
@@ -108,14 +144,22 @@ export function AddPetDialog() {
         description: "There was a problem adding your pet. Please try again.",
       });
     } finally {
-      setIsUploading(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setPreviewImage(null);
+      form.reset();
     }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button variant="outline" size="sm">
           <PlusCircle className="mr-2 h-4 w-4" />
           Add Pet
         </Button>
@@ -130,6 +174,50 @@ export function AddPetDialog() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Image Upload Section */}
+            <div className="flex flex-col items-center gap-4">
+              <Avatar className="h-24 w-24">
+                {previewImage && previewImage !== '' ? (
+                  <AvatarImage src={previewImage} alt="Preview" />
+                ) : (
+                  <AvatarFallback>
+                    <Upload className="h-8 w-8" />
+                  </AvatarFallback>
+                )}
+              </Avatar>
+              
+              <div className="flex gap-2">
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageChange}
+                  id="pet-image"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading}
+                >
+                  Upload Image
+                </Button>
+                {previewImage && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={removeImage}
+                    disabled={isLoading}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <FormField
               control={form.control}
               name="name"
@@ -164,6 +252,9 @@ export function AddPetDialog() {
                       <SelectItem value="cat">Cat</SelectItem>
                       <SelectItem value="bird">Bird</SelectItem>
                       <SelectItem value="fish">Fish</SelectItem>
+                      <SelectItem value="rabbit">Rabbit</SelectItem>
+                      <SelectItem value="hamster">Hamster</SelectItem>
+                      <SelectItem value="guinea pig">Guinea Pig</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -181,6 +272,9 @@ export function AddPetDialog() {
                   <FormControl>
                     <Input placeholder="Enter breed (optional)" {...field} />
                   </FormControl>
+                  <FormDescription>
+                    Optional: Enter your pet's breed
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -195,26 +289,17 @@ export function AddPetDialog() {
                   <FormControl>
                     <Input type="date" {...field} />
                   </FormControl>
+                  <FormDescription>
+                    Approximate date is fine if exact date is unknown
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="space-y-2">
-              <FormLabel>Pet Image</FormLabel>
-              <Input
-                id="image"
-                type="file"
-                accept="image/*"
-              />
-              <FormDescription>
-                Optional: Upload a photo of your pet
-              </FormDescription>
-            </div>
-
             <DialogFooter>
-              <Button type="submit" disabled={isUploading}>
-                {isUploading ? (
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
                   <>
                     <Loading size={16} className="mr-2" />
                     Adding Pet...

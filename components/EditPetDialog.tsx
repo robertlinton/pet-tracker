@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Pet } from '@/types';
 import { Edit, Upload, X } from 'lucide-react';
 import type { PutBlobResult } from '@vercel/blob';
+import { capitalizeFirst } from "@/lib/utils";
 
 import {
   Dialog,
@@ -66,9 +67,10 @@ type FormData = z.infer<typeof editPetSchema>;
 interface EditPetDialogProps {
   pet: Pet;
   children?: React.ReactNode;
+  onPetUpdate?: (updatedPet: Partial<Pet>) => void;
 }
 
-export function EditPetDialog({ pet, children }: EditPetDialogProps) {
+export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -90,7 +92,6 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Preview the selected image
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result as string);
@@ -99,10 +100,40 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
     }
   };
 
-  const removeImage = () => {
-    setPreviewImage(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  const removeImage = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Update pet document to remove imageUrl
+      const petRef = doc(db, 'pets', pet.id);
+      await updateDoc(petRef, {
+        imageUrl: null,
+        updatedAt: serverTimestamp(),
+      });
+
+      setPreviewImage(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+
+      // Update parent component state
+      onPetUpdate?.({ imageUrl: null });
+
+      toast({
+        title: "Success",
+        description: "Pet image removed successfully.",
+      });
+
+      router.refresh();
+    } catch (error) {
+      console.error('Error removing image:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "There was a problem removing the image.",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -131,18 +162,23 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       const imageFile = fileInput?.files?.[0];
       
-      let imageUrl = pet.imageUrl;
+      let imageUrl = previewImage;
       if (imageFile) {
         imageUrl = await handleImageUpload(imageFile);
       }
 
-      // Update pet document
-      const petRef = doc(db, 'pets', pet.id);
-      await updateDoc(petRef, {
+      const updatedData = {
         ...data,
         imageUrl,
-        updatedAt: new Date().toISOString(),
-      });
+        updatedAt: serverTimestamp(),
+      };
+
+      // Update pet document
+      const petRef = doc(db, 'pets', pet.id);
+      await updateDoc(petRef, updatedData);
+
+      // Update parent component state
+      onPetUpdate?.(updatedData);
 
       toast({
         title: "Success!",
@@ -208,7 +244,7 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
               {/* Image Upload Section */}
               <div className="flex flex-col items-center gap-4">
                 <Avatar className="h-24 w-24">
-                  {previewImage ? (
+                  {previewImage && previewImage !== '' ? (
                     <AvatarImage src={previewImage} alt="Preview" />
                   ) : (
                     <AvatarFallback>
@@ -231,6 +267,7 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={isLoading}
                   >
                     Change Image
                   </Button>
@@ -240,8 +277,13 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
                       variant="outline"
                       size="sm"
                       onClick={removeImage}
+                      disabled={isLoading}
                     >
-                      <X className="h-4 w-4" />
+                      {isLoading ? (
+                        <Loading size={16} />
+                      ) : (
+                        <X className="h-4 w-4" />
+                      )}
                     </Button>
                   )}
                 </div>
@@ -281,6 +323,9 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
                         <SelectItem value="cat">Cat</SelectItem>
                         <SelectItem value="bird">Bird</SelectItem>
                         <SelectItem value="fish">Fish</SelectItem>
+                        <SelectItem value="rabbit">Rabbit</SelectItem>
+                        <SelectItem value="hamster">Hamster</SelectItem>
+                        <SelectItem value="guinea pig">Guinea Pig</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -324,7 +369,7 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
                 <div className="flex w-full justify-between">
                   <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                     <AlertDialogTrigger asChild>
-                      <Button type="button" variant="destructive">
+                      <Button type="button" variant="destructive" disabled={isLoading}>
                         Delete Pet
                       </Button>
                     </AlertDialogTrigger>

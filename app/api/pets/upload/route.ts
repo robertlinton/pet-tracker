@@ -1,6 +1,8 @@
 import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function POST(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const filename = searchParams.get('filename');
@@ -19,15 +21,18 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  // Create a unique filename with timestamp
-  const uniqueFilename = `${Date.now()}-${filename}`;
-  
   try {
-    // Convert the request to a blob first
+    // Convert the request to a blob
     const blob = await request.blob();
     
+    // Create a unique filename with timestamp and sanitize it
+    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
+    const uniqueFilename = `${Date.now()}-${sanitizedFilename}`;
+    
+    // Upload to Vercel Blob
     const uploadResult = await put(uniqueFilename, blob, {
       access: 'public',
+      addRandomSuffix: true // Add random suffix to prevent filename collisions
     });
 
     return NextResponse.json(uploadResult);
