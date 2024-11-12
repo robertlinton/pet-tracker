@@ -85,7 +85,7 @@ export default function Sidebar() {
   return (
     <div className="flex h-screen w-72 flex-col border-r bg-card">
       <div className="p-6">
-        <h1 className="text-2xl font-bold">PetCare</h1>
+        <h1 className="text-2xl font-bold">Testing</h1>
       </div>
 
       <ScrollArea className="flex-1 px-3">

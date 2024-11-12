@@ -8,7 +8,7 @@ import Sidebar from '../components/Sidebar'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'PetCare - Track Your Pet\'s Health',
+  title: 'Site - Track Your Pet\'s Health',
   description: 'A comprehensive pet health tracking system',
 }
 
