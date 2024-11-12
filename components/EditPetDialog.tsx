@@ -1,16 +1,15 @@
-// components/EditPetDialog.tsx\
-
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { Pet } from '@/types';
+import { Edit, Upload, X } from 'lucide-react';
+import type { PutBlobResult } from '@vercel/blob';
 
 import {
   Dialog,
@@ -51,8 +50,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { useToast } from "../hooks/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Loading } from "@/components/ui/loading";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const editPetSchema = z.object({
   name: z.string().min(1, "Pet name is required").max(50),
@@ -72,6 +72,8 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(pet.imageUrl || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -85,10 +87,40 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
     },
   });
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Preview the selected image
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setPreviewImage(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleImageUpload = async (file: File): Promise<string> => {
-    const imageRef = ref(storage, `pets/${Date.now()}-${file.name}`);
-    const uploadResult = await uploadBytes(imageRef, file);
-    return getDownloadURL(uploadResult.ref);
+    const response = await fetch(
+      `/api/pets/upload?filename=${file.name}`,
+      {
+        method: 'POST',
+        body: file,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to upload image');
+    }
+
+    const newBlob = await response.json() as PutBlobResult;
+    return newBlob.url;
   };
 
   const onSubmit = async (data: FormData) => {
@@ -173,6 +205,48 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {/* Image Upload Section */}
+              <div className="flex flex-col items-center gap-4">
+                <Avatar className="h-24 w-24">
+                  {previewImage ? (
+                    <AvatarImage src={previewImage} alt="Preview" />
+                  ) : (
+                    <AvatarFallback>
+                      <Upload className="h-8 w-8" />
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                
+                <div className="flex gap-2">
+                  <Input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageChange}
+                    id="pet-image"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Change Image
+                  </Button>
+                  {previewImage && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={removeImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
               <FormField
                 control={form.control}
                 name="name"
@@ -246,62 +320,52 @@ export function EditPetDialog({ pet, children }: EditPetDialogProps) {
                 )}
               />
 
-              <div className="space-y-2">
-                <Label htmlFor="image">Pet Image</Label>
-                <Input
-                  id="image"
-                  type="file"
-                  accept="image/*"
-                />
-                <p className="text-sm text-muted-foreground">
-                  Optional: Upload a new photo
-                </p>
-              </div>
-
               <DialogFooter className="gap-2 sm:gap-0">
-                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                  <AlertDialogTrigger asChild>
-                    <Button type="button" variant="destructive">
-                      Delete Pet
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete your
-                        pet's profile and all associated records.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDelete}
-                        className="bg-red-600 hover:bg-red-700"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loading size={16} className="mr-2" />
-                            Deleting...
-                          </>
-                        ) : (
-                          'Delete'
-                        )}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <div className="flex w-full justify-between">
+                  <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="destructive">
+                        Delete Pet
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your
+                          pet's profile and all associated records.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDelete}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          {isLoading ? (
+                            <>
+                              <Loading size={16} className="mr-2" />
+                              Deleting...
+                            </>
+                          ) : (
+                            'Delete'
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
 
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? (
-                    <>
-                      <Loading size={16} className="mr-2" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <Loading size={16} className="mr-2" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
+                </div>
               </DialogFooter>
             </form>
           </Form>
