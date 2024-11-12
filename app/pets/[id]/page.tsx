@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { Pet, Appointment, MedicalRecord, WeightRecord } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -14,12 +14,11 @@ import {
   Pill,
   Weight,
   Edit,
-  Clock,
-  AlertCircle,
   Cake,
   PawPrint
 } from 'lucide-react';
 import { use } from 'react';
+import { EditPetDialog } from "@/components/EditPetDialog";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -157,10 +156,12 @@ export default function PetOverviewPage({ params }: PageProps) {
             </p>
           </div>
         </div>
-        <Button variant="outline">
-          <Edit className="mr-2 h-4 w-4" />
-          Edit Pet
-        </Button>
+        <EditPetDialog pet={pet}>
+          <Button variant="outline">
+            <Edit className="mr-2 h-4 w-4" />
+            Edit Pet
+          </Button>
+        </EditPetDialog>
       </div>
 
       {/* Quick Stats */}
