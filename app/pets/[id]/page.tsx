@@ -1,11 +1,10 @@
 // app/pets/[id]/page.tsx
-
 import { Suspense } from 'react';
 import { PetOverviewClient } from './pet-overview-client';
 import { Loading } from '@/components/ui/loading';
 
 interface PetOverviewPageProps {
-  params: { id: string }; // Remove Promise here to fix the type issue
+  params: { id: string }; // Use a plain object without async Promise type
 }
 
 export default function PetOverviewPage({ params }: PetOverviewPageProps) {
