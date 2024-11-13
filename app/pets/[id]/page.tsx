@@ -5,13 +5,15 @@ import { PetOverviewClient } from './pet-overview-client';
 import { Loading } from '@/components/ui/loading';
 
 interface PetOverviewPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
-export default function PetOverviewPage({ params }: PetOverviewPageProps) {
+export default async function PetOverviewPage({ params }: PetOverviewPageProps) {
+  const { id } = await params;
   return (
     <Suspense fallback={<Loading />}>
-      <PetOverviewClient petId={params.id} />
+      <PetOverviewClient petId={id} />
     </Suspense>
   );
 }
+
