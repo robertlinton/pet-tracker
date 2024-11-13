@@ -2,7 +2,13 @@
 
 import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/firebase';
-import { doc, updateDoc, serverTimestamp, getDoc, deleteDoc } from 'firebase/firestore';
+import {
+  doc,
+  updateDoc,
+  serverTimestamp,
+  getDoc,
+  deleteDoc,
+} from 'firebase/firestore';
 import { Note } from '@/types';
 import { z } from 'zod';
 
@@ -16,7 +22,7 @@ const updateNoteSchema = z.object({
 // PUT Handler: Update an existing note
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params, searchParams }: { params: { id: string }; searchParams: URLSearchParams }
 ) {
   const { id } = params;
 
@@ -72,7 +78,7 @@ export async function PUT(
 // DELETE Handler: Delete an existing note
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params, searchParams }: { params: { id: string }; searchParams: URLSearchParams }
 ) {
   const { id } = params;
 
