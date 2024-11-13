@@ -20,11 +20,8 @@ const updateNoteSchema = z.object({
 });
 
 // PUT Handler: Update an existing note
-export async function PUT(
-  request: NextRequest,
-  { params, searchParams }: { params: { id: string }; searchParams: URLSearchParams }
-) {
-  const { id } = params;
+export async function PUT(request: NextRequest) {
+  const id = request.nextUrl.searchParams.get('id') as string;
 
   try {
     const body = await request.json();
@@ -76,11 +73,8 @@ export async function PUT(
 }
 
 // DELETE Handler: Delete an existing note
-export async function DELETE(
-  request: NextRequest,
-  { params, searchParams }: { params: { id: string }; searchParams: URLSearchParams }
-) {
-  const { id } = params;
+export async function DELETE(request: NextRequest) {
+  const id = request.nextUrl.searchParams.get('id') as string;
 
   try {
     const noteRef = doc(db, 'notes', id);
@@ -100,3 +94,5 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+
