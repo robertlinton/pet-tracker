@@ -10,9 +10,7 @@ import * as z from "zod";
 import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Pet } from '@/types';
-import { Edit, Upload, X } from 'lucide-react';
-import { del, put } from '@vercel/blob'; // Imported 'del' for image deletion
-import { capitalizeFirst } from "@/lib/utils";
+import { Upload, X } from 'lucide-react';
 
 import {
   Dialog,
@@ -25,7 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -42,17 +39,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from "@/hooks/use-toast";
 import { Loading } from "@/components/ui/loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -105,16 +92,6 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
   const removeImage = async () => {
     try {
       setIsLoading(true);
-      
-      // Extract the filename from imageUrl
-      if (pet.imageUrl) {
-        const url = new URL(pet.imageUrl);
-        const filename = url.pathname.split('/').pop(); // Adjust based on your URL structure
-        
-        if (filename) {
-          await del(filename);
-        }
-      }
 
       // Update pet document to remove imageUrl
       const petRef = doc(db, 'pets', pet.id);
@@ -135,6 +112,9 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
         title: "Success",
         description: "Pet image removed successfully.",
       });
+
+      // Remove the line that closes the modal
+      // setIsOpen(false);
 
       router.refresh();
     } catch (error) {
@@ -169,11 +149,11 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
   const onSubmit = async (data: FormData) => {
     try {
       setIsLoading(true);
-      
+
       // Handle image upload if a new image was selected
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       const imageFile = fileInput?.files?.[0];
-      
+
       let imageUrl = previewImage;
       if (imageFile) {
         imageUrl = await handleImageUpload(imageFile);
@@ -215,7 +195,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
     try {
       setIsLoading(true);
       await deleteDoc(doc(db, 'pets', pet.id));
-      
+
       toast({
         title: "Pet Deleted",
         description: "Pet has been successfully removed.",
