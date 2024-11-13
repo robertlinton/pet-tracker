@@ -1,5 +1,3 @@
-// components/EditPetDialog.tsx
-
 'use client';
 
 import { useState, useRef } from 'react';
@@ -10,7 +8,9 @@ import * as z from "zod";
 import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Pet } from '@/types';
-import { Upload, X } from 'lucide-react';
+import { Edit, Upload, X } from 'lucide-react';
+import type { PutBlobResult } from '@vercel/blob';
+import { capitalizeFirst } from "@/lib/utils";
 
 import {
   Dialog,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -39,7 +40,17 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast";
 import { Loading } from "@/components/ui/loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -61,8 +72,8 @@ interface EditPetDialogProps {
 
 export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(pet.imageUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -92,7 +103,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
   const removeImage = async () => {
     try {
       setIsLoading(true);
-
+      
       // Update pet document to remove imageUrl
       const petRef = doc(db, 'pets', pet.id);
       await updateDoc(petRef, {
@@ -112,9 +123,6 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
         title: "Success",
         description: "Pet image removed successfully.",
       });
-
-      // Remove the line that closes the modal
-      // setIsOpen(false);
 
       router.refresh();
     } catch (error) {
@@ -142,18 +150,18 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
       throw new Error('Failed to upload image');
     }
 
-    const newBlob = await response.json() as { url: string };
+    const newBlob = await response.json() as PutBlobResult;
     return newBlob.url;
   };
 
   const onSubmit = async (data: FormData) => {
     try {
       setIsLoading(true);
-
+      
       // Handle image upload if a new image was selected
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
       const imageFile = fileInput?.files?.[0];
-
+      
       let imageUrl = previewImage;
       if (imageFile) {
         imageUrl = await handleImageUpload(imageFile);
@@ -179,6 +187,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
 
       setIsOpen(false);
       router.refresh();
+
     } catch (error) {
       console.error('Error updating pet:', error);
       toast({
@@ -195,7 +204,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
     try {
       setIsLoading(true);
       await deleteDoc(doc(db, 'pets', pet.id));
-
+      
       toast({
         title: "Pet Deleted",
         description: "Pet has been successfully removed.",
@@ -216,22 +225,9 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
     }
   };
 
-  const handleOpenChange = (open: boolean) => {
-    setIsOpen(open);
-    if (!open) {
-      setPreviewImage(pet.imageUrl || null);
-      form.reset({
-        name: pet.name,
-        species: pet.species,
-        breed: pet.breed || "",
-        birthDate: pet.birthDate,
-      });
-    }
-  };
-
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           {children}
         </DialogTrigger>
@@ -272,7 +268,6 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
-                    aria-label="Change Pet Image"
                   >
                     Change Image
                   </Button>
@@ -283,7 +278,6 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
                       size="sm"
                       onClick={removeImage}
                       disabled={isLoading}
-                      aria-label="Remove Pet Image"
                     >
                       {isLoading ? (
                         <Loading size={16} />

@@ -1,10 +1,10 @@
 // app/pets/[id]/error.tsx
 
 'use client'
-
+ 
 import { useEffect } from 'react'
 import { Button } from "@/components/ui/button"
-
+ 
 export default function Error({
   error,
   reset,
@@ -15,7 +15,7 @@ export default function Error({
   useEffect(() => {
     console.error(error)
   }, [error])
-
+ 
   return (
     <div className="flex flex-col items-center justify-center h-screen space-y-4">
       <div className="space-y-2 text-center">

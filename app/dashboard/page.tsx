@@ -1,29 +1,23 @@
-// app/dashboard/page.tsx
-
-'use client'
+'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from '@/lib/firebase';
-import { Appointment, DashboardEvent } from '@/types';
+import { 
+  collection, 
+  query, 
+  where, 
+  getDocs,
+  Timestamp,
+  onSnapshot,
+  orderBy,
+  limit
+} from 'firebase/firestore';
+import { Calendar, Clock, Activity, AlertCircle, PawPrint } from 'lucide-react';
+import { DashboardEvent, Appointment } from '@/types';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PawPrint, Calendar, Clock, AlertCircle, Plus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { parseISO, format, isAfter } from 'date-fns';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { appointmentFormSchema, AppointmentFormValues } from '@/lib/schemas/appointment';
-import { Loading } from '@/components/ui/loading';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { capitalizeFirst } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
+import { parseISO, format, isAfter, startOfDay } from 'date-fns';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -36,11 +30,10 @@ export default function DashboardPage() {
   const [recentActivities, setRecentActivities] = useState<DashboardEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { toast } = useToast();
 
   useEffect(() => {
     const userId = 'current-user-id'; // Replace with actual auth
-    const now = new Date();
+    const today = startOfDay(new Date());
 
     // Set up queries
     const setupQueries = async () => {
@@ -56,7 +49,6 @@ export default function DashboardPage() {
           where('userId', '==', userId),
           where('status', '==', 'scheduled'),
           orderBy('date', 'asc'),
-          orderBy('time', 'asc'),
           limit(5)
         );
 
@@ -76,9 +68,7 @@ export default function DashboardPage() {
 
           snapshot.forEach((doc) => {
             const appointment = { id: doc.id, ...doc.data() } as Appointment;
-            const appointmentDateTime = parseISO(`${appointment.date}T${appointment.time}`);
-
-            if (isAfter(appointmentDateTime, now)) {
+            if (isAfter(parseISO(appointment.date), today)) {
               upcomingCount++;
               appointmentsData.push(appointment);
             }
@@ -90,19 +80,19 @@ export default function DashboardPage() {
 
         const unsubMedications = onSnapshot(medicationsQuery, (snapshot) => {
           const medications: DashboardEvent[] = snapshot.docs
-            .map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                type: data.type,
-                title: data.name,
-                date: data.nextDueDate || data.date, // Assuming nextDueDate is for upcoming
-                petName: data.petName,
-                petId: data.petId,
-                createdAt: data.createdAt
-              };
-            })
-            .slice(0, 5);
+          .map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              type: 'medication',
+              title: data.name,
+              date: data.nextDueDate,
+              petName: data.petName,
+              petId: data.petId,
+              createdAt: data.createdAt
+            };
+          })
+          .slice(0, 5);
 
           setRecentActivities(medications);
           setStats(prev => ({ 
@@ -139,11 +129,9 @@ export default function DashboardPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loading />
-      </div>
-    );
+    return <div className="flex items-center justify-center h-screen">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+    </div>;
   }
 
   return (
@@ -200,21 +188,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-4">
               {upcomingEvents.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                    <Calendar className="h-8 w-8 text-muted-foreground mb-4" />
-                    <p className="text-lg font-medium">No upcoming appointments</p>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Schedule a new appointment for your pet
-                    </p>
-                    <AddAppointmentDialog petId={upcomingEvents[0]?.petId || ''}>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Appointment
-                      </Button>
-                    </AddAppointmentDialog>
-                  </CardContent>
-                </Card>
+                <p className="text-sm text-muted-foreground">No upcoming appointments</p>
               ) : (
                 upcomingEvents.map((appointment) => (
                   <div 
@@ -224,7 +198,7 @@ export default function DashboardPage() {
                   >
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
-                        {capitalizeFirst(appointment.type)} - {appointment.petName}
+                        {appointment.type.charAt(0).toUpperCase() + appointment.type.slice(1)} - {appointment.petName}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {formatDateTime(appointment.date, appointment.time)}
@@ -235,7 +209,6 @@ export default function DashboardPage() {
                         </p>
                       )}
                     </div>
-                    {/* Remove AddAppointmentDialog Wrapper */}
                     <Button 
                       variant="outline" 
                       size="sm"

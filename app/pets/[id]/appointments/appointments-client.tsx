@@ -1,5 +1,3 @@
-// app/pets/[id]/appointments/appointments-client.tsx
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -10,12 +8,13 @@ import {
   where, 
   orderBy, 
   onSnapshot,
+  Timestamp,
   doc,
   updateDoc,
   serverTimestamp,
   writeBatch
 } from 'firebase/firestore';
-import { format, isAfter, isBefore, parseISO } from 'date-fns';
+import { format, isAfter, isBefore, startOfDay, parseISO, endOfDay } from 'date-fns';
 import { Plus, Calendar } from 'lucide-react';
 import { Appointment } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
 import { AppointmentCard } from '@/components/AppointmentCard';
 import { useToast } from '@/hooks/use-toast';
-import { Loading } from '@/components/ui/loading';
 
 interface AppointmentsClientProps {
   petId: string;
@@ -43,13 +41,13 @@ export function AppointmentsClient({ petId }: AppointmentsClientProps) {
 
   // Function to update past appointments to completed
   const updatePastAppointments = async (appointments: Appointment[]) => {
-    const now = new Date();
+    const today = endOfDay(new Date());
     const batch = writeBatch(db);
     let updateCount = 0;
 
     appointments.forEach((appointment) => {
-      const appointmentDateTime = parseISO(`${appointment.date}T${appointment.time}`);
-      if (isBefore(appointmentDateTime, now) && 
+      const appointmentDate = parseISO(appointment.date);
+      if (isBefore(appointmentDate, today) && 
           appointment.status === 'scheduled') {
         const appointmentRef = doc(db, 'appointments', appointment.id);
         batch.update(appointmentRef, {
@@ -69,11 +67,6 @@ export function AppointmentsClient({ petId }: AppointmentsClientProps) {
         });
       } catch (error) {
         console.error('Error updating past appointments:', error);
-        toast({
-          variant: "destructive",
-          title: "Update Failed",
-          description: "Failed to auto-update past appointments.",
-        });
       }
     }
   };
@@ -84,8 +77,7 @@ export function AppointmentsClient({ petId }: AppointmentsClientProps) {
     const appointmentsQuery = query(
       collection(db, 'appointments'),
       where('petId', '==', petId),
-      orderBy('date', 'asc'),
-      orderBy('time', 'asc') // Ensure appointments are ordered by time as well
+      orderBy('date', 'asc')
     );
 
     const unsubscribe = onSnapshot(
@@ -115,32 +107,25 @@ export function AppointmentsClient({ petId }: AppointmentsClientProps) {
     return () => unsubscribe();
   }, [petId, toast]);
 
-  const now = new Date();
+  const now = startOfDay(new Date());
 
   const upcomingAppointments = appointments.filter(
-    (appointment) => {
-      const appointmentDateTime = parseISO(`${appointment.date}T${appointment.time}`);
-      return isAfter(appointmentDateTime, now) && 
-             appointment.status === 'scheduled';
-    }
+    (appointment) => isAfter(new Date(appointment.date), now) && 
+                    appointment.status === 'scheduled'
   );
 
   const pastAppointments = appointments.filter(
-    (appointment) => {
-      const appointmentDateTime = parseISO(`${appointment.date}T${appointment.time}`);
-      return isBefore(appointmentDateTime, now) || 
-             appointment.status !== 'scheduled';
-    }
+    (appointment) => isBefore(new Date(appointment.date), now) || 
+                    appointment.status !== 'scheduled'
   ).sort((a, b) => {
-    const dateA = parseISO(`${a.date}T${a.time}`);
-    const dateB = parseISO(`${b.date}T${b.time}`);
-    return dateB.getTime() - dateA.getTime();
+    // Sort by date in descending order (most recent first)
+    return parseISO(b.date).getTime() - parseISO(a.date).getTime();
   });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loading />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
       </div>
     );
   }
