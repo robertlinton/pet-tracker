@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar, Pill, Weight, Edit, Cake, PawPrint } from 'lucide-react';
 import { EditPetDialog } from "@/components/EditPetDialog";
 import { capitalizeFirst } from "@/lib/utils";
+import { parse, format } from 'date-fns'; // Import date-fns functions
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -129,8 +130,14 @@ export default function PetOverviewPage({ params }: PageProps) {
     );
   }
 
+  // Function to format the date correctly using date-fns
+  const formatDate = (dateString: string): string => {
+    const parsedDate = parse(dateString, 'yyyy-MM-dd', new Date());
+    return format(parsedDate, 'MM/dd/yyyy'); // Adjust format as needed
+  };
+
   const calculateAge = (birthDate: string) => {
-    const birth = new Date(birthDate);
+    const birth = parse(birthDate, 'yyyy-MM-dd', new Date()); // Parse using date-fns
     const now = new Date();
 
     let years = now.getFullYear() - birth.getFullYear();
@@ -199,7 +206,7 @@ export default function PetOverviewPage({ params }: PageProps) {
               </TooltipTrigger>
               <TooltipContent>{ageInfo.tooltip}</TooltipContent>
             </Tooltip>
-            <p className="text-xs text-muted-foreground">Born {new Date(pet.birthDate).toLocaleDateString()}</p>
+            <p className="text-xs text-muted-foreground">Born {formatDate(pet.birthDate)}</p>
           </CardContent>
         </Card>
 
@@ -262,7 +269,7 @@ export default function PetOverviewPage({ params }: PageProps) {
                       <div>
                         <h3 className="font-semibold">{appointment.type}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(appointment.date).toLocaleDateString()} at {appointment.time}
+                          {formatDate(appointment.date)} at {appointment.time}
                         </p>
                       </div>
                       {appointment.clinic && (
@@ -295,7 +302,7 @@ export default function PetOverviewPage({ params }: PageProps) {
                       <div>
                         <h3 className="font-semibold">{medication.name}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(medication.date).toLocaleDateString()}
+                          {formatDate(medication.date)}
                         </p>
                       </div>
                       {medication.prescribedBy && (
@@ -330,7 +337,7 @@ export default function PetOverviewPage({ params }: PageProps) {
                       <div>
                         <h3 className="font-semibold">{weight.weight} {weight.unit}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {new Date(weight.date).toLocaleDateString()}
+                          {formatDate(weight.date)}
                         </p>
                       </div>
                     </div>
