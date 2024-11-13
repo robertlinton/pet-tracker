@@ -12,7 +12,7 @@ interface PetOverviewPageProps {
 export default async function PetOverviewPage({ params }: PetOverviewPageProps) {
   return (
     <Suspense fallback={<Loading />}>
-      <PetOverviewClient petId={params.id} />
+      <PetOverviewClient petId={(params as { id: string }).id} />
     </Suspense>
   );
 }
