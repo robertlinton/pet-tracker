@@ -1,19 +1,23 @@
 // app/api/notes/[id]/route.ts
 
-import { NextResponse } from 'next/server';
+import { NextResponse, NextRequest } from 'next/server';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, serverTimestamp, getDoc, deleteDoc } from 'firebase/firestore';
 import { Note } from '@/types';
 import { z } from 'zod';
 
+// Define the schema for updating a note
 const updateNoteSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100).optional(),
   content: z.string().min(1, 'Content is required').optional(),
   category: z.enum(['behavior', 'health', 'general', 'emergency']).optional(),
-  status: z.enum(['scheduled', 'completed', 'cancelled']).optional(), // Assuming status is part of Note
 });
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+// PUT Handler: Update an existing note
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const { id } = params;
 
   try {
@@ -30,6 +34,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       return NextResponse.json({ error: 'Note not found' }, { status: 404 });
     }
 
+    // Update the note with new data and update the 'updatedAt' timestamp
     await updateDoc(noteRef, {
       ...parsed,
       updatedAt: serverTimestamp(),
@@ -64,7 +69,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+// DELETE Handler: Delete an existing note
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   const { id } = params;
 
   try {
@@ -76,6 +85,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       return NextResponse.json({ error: 'Note not found' }, { status: 404 });
     }
 
+    // Delete the note
     await deleteDoc(noteRef);
 
     return NextResponse.json({ message: 'Note deleted successfully' }, { status: 200 });
