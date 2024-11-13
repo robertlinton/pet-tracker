@@ -31,6 +31,8 @@ import { z } from 'zod';
 import { useNotes } from '@/hooks/useNotes';
 import { useToast } from '@/hooks/use-toast';
 import { Loading } from '@/components/ui/loading';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth } from '@/lib/firebase';
 
 interface AddNoteDialogProps {
   petId: string;
@@ -49,6 +51,7 @@ export function AddNoteDialog({ petId, children }: AddNoteDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const { addNote, isAdding } = useNotes(petId);
   const { toast } = useToast();
+  const [user, loadingUser, errorUser] = useAuthState(auth);
 
   const form = useForm<AddNoteForm>({
     resolver: zodResolver(addNoteSchema),
@@ -60,10 +63,19 @@ export function AddNoteDialog({ petId, children }: AddNoteDialogProps) {
   });
 
   const onSubmit = async (data: AddNoteForm) => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Required',
+        description: 'Please log in to add notes.',
+      });
+      return;
+    }
+
     try {
       await addNote({
         petId: petId,
-        userId: 'current-user-id', // Replace with actual user ID from auth
+        userId: user.uid, // Dynamically obtained from authenticated user
         title: data.title,
         content: data.content,
         category: data.category,
@@ -82,6 +94,14 @@ export function AddNoteDialog({ petId, children }: AddNoteDialogProps) {
       });
     }
   };
+
+  if (loadingUser) {
+    return <Loading />;
+  }
+
+  if (!user) {
+    return <div>Please log in to add notes.</div>;
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
