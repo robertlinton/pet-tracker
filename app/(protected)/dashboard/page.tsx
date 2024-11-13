@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { Loading } from '@/components/ui/loading';
 import { AddPetDialog } from '@/components/AddPetDialog';
+import { capitalizeFirst, capitalizeWords } from '@/lib/utils'; // Import capitalization functions
 
 interface DashboardStats {
   totalPets: number;
@@ -267,7 +268,8 @@ export default function DashboardPage() {
                       <div className="flex-1 space-y-1">
                         <h3 className="font-medium">{pet.name}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {pet.species} • {pet.breed || 'No breed specified'}
+                          {capitalizeFirst(pet.species)} •{' '}
+                          {pet.breed ? capitalizeFirst(pet.breed) : 'No breed specified'}
                         </p>
                       </div>
                       <ArrowRight className="h-4 w-4 text-muted-foreground" />
@@ -297,7 +299,7 @@ export default function DashboardPage() {
                 {data.recentAppointments.map((apt) => (
                   <div key={apt.id} className="flex justify-between items-center">
                     <div>
-                      <p className="font-medium">{apt.type}</p>
+                      <p className="font-medium">{capitalizeWords(apt.type)}</p>
                       <p className="text-sm text-muted-foreground">
                         {format(parseISO(apt.date), 'PPP')}
                       </p>

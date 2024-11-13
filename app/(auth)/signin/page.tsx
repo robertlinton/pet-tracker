@@ -26,8 +26,37 @@ export default function SignInPage() {
   const router = useRouter();
   const { toast } = useToast();
 
+  // New state for handling form errors
+  const [errors, setErrors] = useState({ email: '', password: '' });
+
+  const validateForm = () => {
+    let valid = true;
+    const newErrors = { email: '', password: '' };
+
+    if (!email) {
+      newErrors.email = 'Email is required';
+      valid = false;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Email is invalid';
+      valid = false;
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required';
+      valid = false;
+    }
+
+    setErrors(newErrors);
+    return valid;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -35,9 +64,9 @@ export default function SignInPage() {
       router.push('/dashboard');
     } catch (error: any) {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Invalid email or password",
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Invalid email or password',
       });
     } finally {
       setIsLoading(false);
@@ -45,15 +74,15 @@ export default function SignInPage() {
   };
 
   const handleGoogleSignIn = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       await signInWithGoogle();
       router.push('/dashboard');
     } catch (error: any) {
       toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Could not sign in with Google",
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Could not sign in with Google',
       });
     } finally {
       setIsLoading(false);
@@ -61,14 +90,14 @@ export default function SignInPage() {
   };
 
   return (
-    <Card className="border-0 shadow-none sm:border sm:shadow-sm">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
+    <Card className="border-0 shadow-none sm:border sm:shadow-sm max-w-md mx-auto">
+      <CardHeader className="space-y-1 text-center">
+        <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
         <CardDescription>
-          Enter your email and password to access your account
+          Sign in to continue to your dashboard
         </CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
@@ -80,10 +109,25 @@ export default function SignInPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
+              aria-invalid={errors.email ? 'true' : 'false'}
+              aria-describedby="email-error"
             />
+            {errors.email && (
+              <p id="email-error" className="text-red-600 text-sm">
+                {errors.email}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password" className="flex justify-between">
+              Password
+              <Link
+                href="/reset-password"
+                className="text-sm text-primary hover:underline"
+              >
+                Forgot?
+              </Link>
+            </Label>
             <Input
               id="password"
               type="password"
@@ -92,27 +136,22 @@ export default function SignInPage() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              aria-invalid={errors.password ? 'true' : 'false'}
+              aria-describedby="password-error"
             />
-          </div>
-          <div className="flex items-center justify-end">
-            <Link 
-              href="/reset-password"
-              className="text-sm text-primary hover:underline"
-            >
-              Forgot your password?
-            </Link>
+            {errors.password && (
+              <p id="password-error" className="text-red-600 text-sm">
+                {errors.password}
+              </p>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
-          <Button 
-            type="submit" 
-            className="w-full"
-            disabled={isLoading}
-          >
+          <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? (
               <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
-            Sign in
+            Sign In
           </Button>
           <Button
             type="button"
@@ -121,19 +160,15 @@ export default function SignInPage() {
             className="w-full"
             disabled={isLoading}
           >
-            {isLoading ? (
+            {isLoading && (
               <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Icons.google className="mr-2 h-4 w-4" />
             )}
+            {!isLoading && <Icons.google className="mr-2 h-4 w-4" />}
             Sign in with Google
           </Button>
           <div className="text-center text-sm">
             Don't have an account?{' '}
-            <Link 
-              href="/signup"
-              className="text-primary hover:underline"
-            >
+            <Link href="/signup" className="text-primary hover:underline">
               Sign up
             </Link>
           </div>

@@ -27,6 +27,7 @@ import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
 import { AppointmentCard } from '@/components/AppointmentCard';
 import { useToast } from '@/hooks/use-toast';
 import { Loading } from '@/components/ui/loading';
+import { capitalizeWords } from '@/lib/utils';
 
 interface AppointmentsClientProps {
   petId: string;
@@ -118,6 +119,9 @@ export function AppointmentsClient({ petId }: AppointmentsClientProps) {
         appointment.status === 'scheduled'
       ) {
         const appointmentRef = doc(db, 'appointments', appointment.id);
+        <div key={appointment.id}>
+        <p>{capitalizeWords(appointment.type)}</p>
+      </div>    
         batch.update(appointmentRef, {
           status: 'completed',
           updatedAt: serverTimestamp(),

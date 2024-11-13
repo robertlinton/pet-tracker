@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/tooltip';
 import { EditAppointmentDialog } from './EditAppointmentDialog';
 import { capitalizeFirst } from '@/lib/utils';
+import { capitalizeWords } from '@/lib/utils';
 
 interface AppointmentCardProps {
   appointment: Appointment;
@@ -46,7 +47,7 @@ export function AppointmentCard({ appointment, isUpcoming }: AppointmentCardProp
                 {capitalizeFirst(appointment.status)}
               </Badge>
               <Badge variant="outline">
-                {capitalizeFirst(appointment.type)}
+                {capitalizeWords(appointment.type)}
               </Badge>
             </div>
 
