@@ -3,23 +3,23 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/context/auth-context';
+import Sidebar from '@/components/Sidebar';
 import { Loading } from '@/components/ui/loading';
 
-export default function Home() {
+export default function ProtectedLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (user) {
-        router.push('/dashboard');
-      } else {
-        router.push('/signin');
-      }
+    if (!isLoading && !user) {
+      router.push('/signin');
     }
   }, [user, isLoading, router]);
 
-  // Show loading state while checking auth
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -28,6 +28,16 @@ export default function Home() {
     );
   }
 
-  // This will briefly show while redirecting
-  return null;
+  if (!user) {
+    return null;
+  }
+
+  return (
+    <div className="flex min-h-screen bg-gray-100">
+      <Sidebar />
+      <main className="flex-1 p-6">
+        {children}
+      </main>
+    </div>
+  );
 }

@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Pet } from '@/types';
 import { Edit, Upload, X } from 'lucide-react';
 import type { PutBlobResult } from '@vercel/blob';
 import { capitalizeFirst } from "@/lib/utils";
+import { useAuth } from '@/lib/context/auth-context';
 
 import {
   Dialog,
@@ -78,6 +79,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm<FormData>({
     resolver: zodResolver(editPetSchema),
@@ -155,8 +157,25 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
   };
 
   const onSubmit = async (data: FormData) => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to update pet information.",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
+      
+      // Verify ownership
+      const petRef = doc(db, 'pets', pet.id);
+      const petDoc = await getDoc(petRef);
+      
+      if (!petDoc.exists() || petDoc.data()?.userId !== user.uid) {
+        throw new Error('Unauthorized to update this pet');
+      }
       
       // Handle image upload if a new image was selected
       const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -170,11 +189,10 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
       const updatedData = {
         ...data,
         imageUrl,
+        userId: user.uid,
         updatedAt: serverTimestamp(),
       };
 
-      // Update pet document
-      const petRef = doc(db, 'pets', pet.id);
       await updateDoc(petRef, updatedData);
 
       // Update parent component state
@@ -201,9 +219,27 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
   };
 
   const handleDelete = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to delete pets.",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
-      await deleteDoc(doc(db, 'pets', pet.id));
+
+      // Verify ownership before deletion
+      const petRef = doc(db, 'pets', pet.id);
+      const petDoc = await getDoc(petRef);
+      
+      if (!petDoc.exists() || petDoc.data()?.userId !== user.uid) {
+        throw new Error('Unauthorized to delete this pet');
+      }
+      
+      await deleteDoc(petRef);
       
       toast({
         title: "Pet Deleted",
@@ -241,7 +277,6 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {/* Image Upload Section */}
               <div className="flex flex-col items-center gap-4">
                 <Avatar className="h-24 w-24">
                   {previewImage && previewImage !== '' ? (

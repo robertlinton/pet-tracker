@@ -9,7 +9,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Upload, X, PlusCircle } from 'lucide-react';
 import type { PutBlobResult } from '@vercel/blob';
-import { capitalizeFirst } from "@/lib/utils";
+import { useAuth } from '@/lib/context/auth-context';
 
 import {
   Dialog,
@@ -51,13 +51,18 @@ const addPetSchema = z.object({
 
 type FormData = z.infer<typeof addPetSchema>;
 
-export function AddPetDialog() {
+interface AddPetDialogProps {
+  children?: React.ReactNode;
+}
+
+export function AddPetDialog({ children }: AddPetDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm<FormData>({
     resolver: zodResolver(addPetSchema),
@@ -105,6 +110,15 @@ export function AddPetDialog() {
   };
 
   const onSubmit = async (data: FormData) => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to add a pet.",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
       
@@ -121,7 +135,7 @@ export function AddPetDialog() {
       await addDoc(collection(db, 'pets'), {
         ...data,
         imageUrl,
-        userId: 'current-user-id', // Replace with actual user ID from auth
+        userId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -159,10 +173,12 @@ export function AddPetDialog() {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Pet
-        </Button>
+        {children || (
+          <Button variant="outline" size="sm">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Pet
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>

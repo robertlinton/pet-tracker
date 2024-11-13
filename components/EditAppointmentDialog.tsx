@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { appointmentFormSchema, type AppointmentFormValues } from '@/lib/schemas/appointment';
 import { Appointment } from '@/types';
@@ -49,6 +49,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loading } from '@/components/ui/loading';
+import { useAuth } from '@/lib/context/auth-context';
 
 interface EditAppointmentDialogProps {
   children: React.ReactNode;
@@ -61,6 +62,7 @@ export function EditAppointmentDialog({ children, appointment }: EditAppointment
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
@@ -76,6 +78,15 @@ export function EditAppointmentDialog({ children, appointment }: EditAppointment
   });
 
   async function onSubmit(data: AppointmentFormValues) {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to update appointments.",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
 
@@ -83,6 +94,7 @@ export function EditAppointmentDialog({ children, appointment }: EditAppointment
       const appointmentRef = doc(db, 'appointments', appointment.id);
       await updateDoc(appointmentRef, {
         ...data,
+        userId: user.uid, // Ensure the correct user ID
         updatedAt: serverTimestamp(),
       });
 
@@ -107,10 +119,28 @@ export function EditAppointmentDialog({ children, appointment }: EditAppointment
   }
 
   async function onDelete() {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to delete appointments.",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
-      await deleteDoc(doc(db, 'appointments', appointment.id));
-      
+
+      // Verify ownership before deletion
+      const appointmentRef = doc(db, 'appointments', appointment.id);
+      const appointmentDoc = await getDoc(appointmentRef);
+
+      if (!appointmentDoc.exists() || appointmentDoc.data()?.userId !== user.uid) {
+        throw new Error('Unauthorized to delete this appointment');
+      }
+
+      await deleteDoc(appointmentRef);
+
       toast({
         title: 'Success',
         description: 'Appointment has been deleted successfully.',
@@ -279,7 +309,7 @@ export function EditAppointmentDialog({ children, appointment }: EditAppointment
                     <Textarea 
                       className="resize-none"
                       {...field}
-                      value={field.value || ''}
+                      value={field.value || ''} 
                     />
                   </FormControl>
                   <FormDescription>

@@ -37,6 +37,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Loading } from '@/components/ui/loading';
+import { useAuth } from '@/lib/context/auth-context';
 
 interface AddAppointmentDialogProps {
   children: React.ReactNode;
@@ -48,6 +49,7 @@ export function AddAppointmentDialog({ children, petId }: AddAppointmentDialogPr
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const form = useForm<AppointmentFormValues>({
     resolver: zodResolver(appointmentFormSchema),
@@ -63,14 +65,23 @@ export function AddAppointmentDialog({ children, petId }: AddAppointmentDialogPr
   });
 
   async function onSubmit(data: AppointmentFormValues) {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to schedule appointments.",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
 
-      // Add appointment document
+      // Add appointment document with actual user ID
       await addDoc(collection(db, 'appointments'), {
         ...data,
         petId,
-        userId: 'current-user-id', // Replace with actual user ID from auth
+        userId: user.uid,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

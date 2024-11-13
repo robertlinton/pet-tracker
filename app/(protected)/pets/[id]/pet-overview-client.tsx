@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { Pet, Appointment, MedicalRecord, WeightRecord } from '@/types';
+import { useAuth } from '@/lib/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar, Pill, Weight, Edit, Cake, PawPrint, Clock } from 'lucide-react';
 import { EditPetDialog } from "@/components/EditPetDialog";
 import { capitalizeFirst } from "@/lib/utils";
-import { parseISO, format, formatDistanceToNow, isAfter, isBefore, startOfDay } from 'date-fns';
+import { parseISO, format, formatDistanceToNow, isAfter, startOfDay } from 'date-fns';
 import { Badge } from "@/components/ui/badge";
 import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
 import { useRouter } from 'next/navigation';
@@ -30,21 +31,33 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
+  const { user } = useAuth();
   const today = startOfDay(new Date());
 
   useEffect(() => {
-    if (!petId) return;
+    if (!petId || !user) return;
 
     const fetchPetData = async () => {
       try {
         const petDoc = await getDoc(doc(db, 'pets', petId));
-        if (petDoc.exists()) {
-          setPet({ id: petDoc.id, ...petDoc.data() } as Pet);
+
+        // Verify pet ownership
+        if (!petDoc.exists() || petDoc.data()?.userId !== user.uid) {
+          router.push('/dashboard');
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Pet not found or access denied.",
+          });
+          return;
         }
+
+        setPet({ id: petDoc.id, ...petDoc.data() } as Pet);
 
         const appointmentsQuery = query(
           collection(db, 'appointments'),
           where('petId', '==', petId),
+          where('userId', '==', user.uid),
           where('status', '==', 'scheduled'),
           limit(3)
         );
@@ -52,15 +65,18 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
         const medicationsQuery = query(
           collection(db, 'medications'),
           where('petId', '==', petId),
+          where('userId', '==', user.uid),
           limit(3)
         );
 
         const weightQuery = query(
           collection(db, 'weights'),
           where('petId', '==', petId),
+          where('userId', '==', user.uid),
           limit(5)
         );
 
+        // Set up real-time listeners
         const unsubAppointments = onSnapshot(appointmentsQuery, (snapshot) => {
           const appointments: Appointment[] = [];
           snapshot.forEach((doc) => {
@@ -108,7 +124,7 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
     };
 
     fetchPetData();
-  }, [petId, toast, today]);
+  }, [petId, user, toast, router, today]);
 
   const formatDate = (dateString: string): string => {
     return format(parseISO(dateString), 'MMM d, yyyy');
