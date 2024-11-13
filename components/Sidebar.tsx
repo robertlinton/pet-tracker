@@ -53,11 +53,10 @@ export default function Sidebar() {
       setPets(petsData);
 
       // If no pet is selected and we have pets, select the first one
-      if (!selectedPet && petsData.length > 0) {
+      // Only perform redirection if the current path is a pet-specific route
+      if (!selectedPet && petsData.length > 0 && pathname.startsWith('/pets/')) {
         setSelectedPet(petsData[0].id);
-        if (pathname === '/dashboard') {
-          router.push(`/pets/${petsData[0].id}`);
-        }
+        router.push(`/pets/${petsData[0].id}`);
       }
     });
 
@@ -141,7 +140,7 @@ export default function Sidebar() {
           </div>
 
           {/* Pet Sections - Only show if a pet is selected and we're on a pet page */}
-          {selectedPet && pathname.includes('/pets/') && (
+          {selectedPet && pathname.startsWith('/pets/') && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold tracking-tight">
                 Pet Details

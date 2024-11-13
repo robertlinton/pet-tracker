@@ -9,14 +9,14 @@ import { db } from '@/lib/firebase';
 import { Appointment, DashboardEvent } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PawPrint, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { PawPrint, Calendar, Clock, AlertCircle, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { parseISO, format, isAfter, startOfDay } from 'date-fns';
+import { parseISO, format, isAfter } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { appointmentFormSchema, AppointmentFormValues } from '@/lib/schemas/appointment';
 import { Loading } from '@/components/ui/loading';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -200,7 +200,21 @@ export default function DashboardPage() {
           <CardContent>
             <div className="space-y-4">
               {upcomingEvents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No upcoming appointments</p>
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                    <Calendar className="h-8 w-8 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium">No upcoming appointments</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Schedule a new appointment for your pet
+                    </p>
+                    <AddAppointmentDialog petId={upcomingEvents[0]?.petId || ''}>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Appointment
+                      </Button>
+                    </AddAppointmentDialog>
+                  </CardContent>
+                </Card>
               ) : (
                 upcomingEvents.map((appointment) => (
                   <div 
@@ -221,18 +235,17 @@ export default function DashboardPage() {
                         </p>
                       )}
                     </div>
-                    <AddAppointmentDialog petId={appointment.petId}>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/pets/${appointment.petId}/appointments`);
-                        }}
-                      >
-                        View All
-                      </Button>
-                    </AddAppointmentDialog>
+                    {/* Remove AddAppointmentDialog Wrapper */}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/pets/${appointment.petId}/appointments`);
+                      }}
+                    >
+                      View All
+                    </Button>
                   </div>
                 ))
               )}
