@@ -1,4 +1,5 @@
-'use client';
+// app/dashboard/page.tsx
+"use client"
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,14 +8,13 @@ import {
   collection, 
   query, 
   where, 
-  getDocs,
-  Timestamp,
   onSnapshot,
   orderBy,
-  limit
+  limit,
+  Timestamp,
 } from 'firebase/firestore';
-import { Calendar, Clock, Activity, AlertCircle, PawPrint } from 'lucide-react';
-import { DashboardEvent, Appointment } from '@/types';
+import { Calendar, Clock, Activity, AlertCircle, PawPrint, Pill } from 'lucide-react';
+import { DashboardEvent, Appointment, MedicalRecord } from '@/types';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { parseISO, format, isAfter, startOfDay } from 'date-fns';
@@ -24,10 +24,13 @@ export default function DashboardPage() {
     totalPets: 0,
     upcomingAppointments: 0,
     dueMedications: 0,
-    healthAlerts: 0
+    healthAlerts: 0,
+    recentMedications: 0, // New statistic
+    upcomingMedicationDues: 0 // New statistic
   });
   const [upcomingEvents, setUpcomingEvents] = useState<Appointment[]>([]);
   const [recentActivities, setRecentActivities] = useState<DashboardEvent[]>([]);
+  const [recentMedications, setRecentMedications] = useState<MedicalRecord[]>([]); // New state
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
@@ -38,12 +41,13 @@ export default function DashboardPage() {
     // Set up queries
     const setupQueries = async () => {
       try {
-        // Simple queries without complex conditions
+        // Pets Query
         const petsQuery = query(
           collection(db, 'pets'),
           where('userId', '==', userId)
         );
 
+        // Appointments Query
         const appointmentsQuery = query(
           collection(db, 'appointments'),
           where('userId', '==', userId),
@@ -52,12 +56,34 @@ export default function DashboardPage() {
           limit(5)
         );
 
-        const medicationsQuery = query(
+        // Active Medications Query
+        const activeMedicationsQuery = query(
           collection(db, 'medications'),
-          where('userId', '==', userId)
+          where('userId', '==', userId),
+          where('status', '==', 'active'),
+          where('nextDueDate', '>=', today),
+          orderBy('nextDueDate', 'asc'),
+          limit(5)
         );
 
-        // Setup real-time listeners
+        // Recent Medications Query
+        const recentMedicationsQuery = query(
+          collection(db, 'medications'),
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc'),
+          limit(5)
+        );
+
+        // Upcoming Medication Dues Query
+        const upcomingMedicationDuesQuery = query(
+          collection(db, 'medications'),
+          where('userId', '==', userId),
+          where('nextDueDate', '>=', today),
+          orderBy('nextDueDate', 'asc'),
+          limit(5)
+        );
+
+        // Set up real-time listeners
         const unsubPets = onSnapshot(petsQuery, (snapshot) => {
           setStats(prev => ({ ...prev, totalPets: snapshot.size }));
         });
@@ -78,28 +104,21 @@ export default function DashboardPage() {
           setStats(prev => ({ ...prev, upcomingAppointments: upcomingCount }));
         });
 
-        const unsubMedications = onSnapshot(medicationsQuery, (snapshot) => {
-          const medications: DashboardEvent[] = snapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              type: 'medication',
-              title: data.name,
-              date: data.nextDueDate,
-              petName: data.petName,
-              petId: data.petId,
-              createdAt: data.createdAt
-            };
-          })
-          .slice(0, 5);
-
-          setRecentActivities(medications);
+        const unsubActiveMedications = onSnapshot(activeMedicationsQuery, (snapshot) => {
           setStats(prev => ({ 
             ...prev, 
             dueMedications: snapshot.size,
             healthAlerts: snapshot.size // Simplified alert logic
           }));
+        });
+
+        const unsubRecentMedications = onSnapshot(recentMedicationsQuery, (snapshot) => {
+          setRecentMedications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MedicalRecord)));
+          setStats(prev => ({ ...prev, recentMedications: snapshot.size }));
+        });
+
+        const unsubUpcomingMedicationDues = onSnapshot(upcomingMedicationDuesQuery, (snapshot) => {
+          setStats(prev => ({ ...prev, upcomingMedicationDues: snapshot.size }));
         });
 
         setIsLoading(false);
@@ -108,7 +127,9 @@ export default function DashboardPage() {
         return () => {
           unsubPets();
           unsubAppointments();
-          unsubMedications();
+          unsubActiveMedications();
+          unsubRecentMedications();
+          unsubUpcomingMedicationDues();
         };
       } catch (error) {
         console.error('Error setting up dashboard listeners:', error);
@@ -138,6 +159,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Dashboard</h1>
       
+      {/* Statistics Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -180,6 +202,30 @@ export default function DashboardPage() {
         </Card>
       </div>
 
+      {/* Additional Statistics */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recent Medications</CardTitle>
+            <Pill className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.recentMedications}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming Medication Dues</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.upcomingMedicationDues}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Upcoming Appointments */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -226,28 +272,34 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
+        {/* Medication Reminders */}
         <Card>
           <CardHeader>
             <CardTitle>Medication Reminders</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivities.length === 0 ? (
+              {recentMedications.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No medication reminders</p>
               ) : (
-                recentActivities.map((event) => (
+                recentMedications.map((medication) => (
                   <div 
-                    key={event.id} 
+                    key={medication.id} 
                     className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent"
-                    onClick={() => router.push(`/pets/${event.petId}/medications`)}
+                    onClick={() => router.push(`/pets/${medication.petId}/medications`)}
                   >
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
-                        {event.title} - {event.petName}
+                        {medication.name} - {medication.petName}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Due: {formatDateTime(event.date)}
+                        Due: {formatDateTime(medication.nextDueDate || medication.date)}
                       </p>
+                      {medication.prescribedBy && (
+                        <p className="text-sm text-muted-foreground">
+                          Prescribed by: {medication.prescribedBy}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))
