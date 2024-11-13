@@ -1,14 +1,18 @@
 // app/pets/[id]/appointments/page.tsx
+import { Suspense } from 'react';
+import { AppointmentsClient } from './appointments-client';
+import { Loading } from '@/components/ui/loading';
 
-'use client';
+interface AppointmentsPageProps {
+  params: {
+    id: string;
+  };
+}
 
-import React from 'react';
-
-export default function AppointmentsPage() {
+export default function AppointmentsPage({ params }: AppointmentsPageProps) {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Appointments</h1>
-      <p className="mt-4 text-gray-600">Coming soon...</p>
-    </div>
+    <Suspense fallback={<Loading />}>
+      <AppointmentsClient petId={params.id} />
+    </Suspense>
   );
 }
