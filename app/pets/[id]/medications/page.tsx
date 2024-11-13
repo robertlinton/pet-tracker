@@ -1,36 +1,14 @@
 // app/pets/[id]/medications/page.tsx
 
-import { Suspense } from 'react';
-import { MedicationsClient } from './medications-client';
-import { Loading } from '@/components/ui/loading';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { notFound } from 'next/navigation';
+'use client';
 
-interface MedicationsPageProps {
-  params: Promise<{
-    id: string;
-  }>;
-}
+import React from 'react';
 
-async function getPetName(petId: string) {
-  const petDoc = await getDoc(doc(db, 'pets', petId));
-  if (!petDoc.exists()) {
-    return notFound();
-  }
-  return petDoc.data().name;
-}
-
-export default async function MedicationsPage({ params }: MedicationsPageProps) {
-  const resolvedParams = await params;
-  const petName = await getPetName(resolvedParams.id);
-
+export default function MedicationsPage() {
   return (
-    <Suspense fallback={<Loading />}>
-      <MedicationsClient 
-        petId={resolvedParams.id}
-        petName={petName}
-      />
-    </Suspense>
+    <div className="p-6">
+      <h1 className="text-2xl font-bold">Medications</h1>
+      <p className="mt-4 text-gray-600">Coming soon...</p>
+    </div>
   );
 }
