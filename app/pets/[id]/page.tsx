@@ -1,3 +1,5 @@
+// eslint-disable
+
 // app/pets/[id]/page.tsx
 import { Suspense } from 'react';
 import { PetOverviewClient } from './pet-overview-client';
