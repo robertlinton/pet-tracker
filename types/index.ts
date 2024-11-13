@@ -85,5 +85,6 @@ export interface DashboardEvent {
   title: string;
   date: string;
   petName: string;
+  petId: string;  // Added petId
   createdAt: string;
 }

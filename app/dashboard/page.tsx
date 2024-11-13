@@ -1,10 +1,8 @@
-// app/dashboard/page.tsx
-
 'use client';
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { db } from '../../lib/firebase';
+import { db } from '@/lib/firebase';
 import { 
   collection, 
   query, 
@@ -16,8 +14,10 @@ import {
   limit
 } from 'firebase/firestore';
 import { Calendar, Clock, Activity, AlertCircle, PawPrint } from 'lucide-react';
-import { DashboardEvent } from '../../types';
-import React from 'react';
+import { DashboardEvent, Appointment } from '@/types';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { parseISO, format, isAfter, startOfDay } from 'date-fns';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -26,12 +26,14 @@ export default function DashboardPage() {
     dueMedications: 0,
     healthAlerts: 0
   });
-  const [upcomingEvents, setUpcomingEvents] = useState<DashboardEvent[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<Appointment[]>([]);
   const [recentActivities, setRecentActivities] = useState<DashboardEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const userId = 'current-user-id'; // Replace with actual auth
+    const today = startOfDay(new Date());
 
     // Set up queries
     const setupQueries = async () => {
@@ -44,7 +46,10 @@ export default function DashboardPage() {
 
         const appointmentsQuery = query(
           collection(db, 'appointments'),
-          where('userId', '==', userId)
+          where('userId', '==', userId),
+          where('status', '==', 'scheduled'),
+          orderBy('date', 'asc'),
+          limit(5)
         );
 
         const medicationsQuery = query(
@@ -58,38 +63,36 @@ export default function DashboardPage() {
         });
 
         const unsubAppointments = onSnapshot(appointmentsQuery, (snapshot) => {
-          const appointments: DashboardEvent[] = snapshot.docs
-            .map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                type: 'appointment',
-                title: `${data.type} Appointment`,
-                date: data.date,
-                petName: data.petName,
-                createdAt: data.createdAt
-              };
-            })
-            .slice(0, 5); // Limit to 5 items client-side for now
+          const appointmentsData: Appointment[] = [];
+          let upcomingCount = 0;
 
-          setUpcomingEvents(appointments);
-          setStats(prev => ({ ...prev, upcomingAppointments: snapshot.size }));
+          snapshot.forEach((doc) => {
+            const appointment = { id: doc.id, ...doc.data() } as Appointment;
+            if (isAfter(parseISO(appointment.date), today)) {
+              upcomingCount++;
+              appointmentsData.push(appointment);
+            }
+          });
+
+          setUpcomingEvents(appointmentsData);
+          setStats(prev => ({ ...prev, upcomingAppointments: upcomingCount }));
         });
 
         const unsubMedications = onSnapshot(medicationsQuery, (snapshot) => {
           const medications: DashboardEvent[] = snapshot.docs
-            .map(doc => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                type: 'medication',
-                title: data.name,
-                date: data.nextDueDate,
-                petName: data.petName,
-                createdAt: data.createdAt
-              };
-            })
-            .slice(0, 5); // Limit to 5 items client-side for now
+          .map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              type: 'medication',
+              title: data.name,
+              date: data.nextDueDate,
+              petName: data.petName,
+              petId: data.petId,
+              createdAt: data.createdAt
+            };
+          })
+          .slice(0, 5);
 
           setRecentActivities(medications);
           setStats(prev => ({ 
@@ -115,6 +118,15 @@ export default function DashboardPage() {
 
     setupQueries();
   }, []);
+
+  const formatDateTime = (date: string, time?: string) => {
+    if (!date) return '';
+    const formattedDate = format(parseISO(date), 'MMM d, yyyy');
+    if (time) {
+      return `${formattedDate} at ${format(parseISO(`2000-01-01T${time}`), 'h:mm a')}`;
+    }
+    return formattedDate;
+  };
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-screen">
@@ -171,23 +183,42 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming Events</CardTitle>
+            <CardTitle>Upcoming Appointments</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {upcomingEvents.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No upcoming events</p>
+                <p className="text-sm text-muted-foreground">No upcoming appointments</p>
               ) : (
-                upcomingEvents.map((event) => (
-                  <div key={event.id} className="flex items-center">
-                    <div className="ml-4 space-y-1">
+                upcomingEvents.map((appointment) => (
+                  <div 
+                    key={appointment.id} 
+                    className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent"
+                    onClick={() => router.push(`/pets/${appointment.petId}`)}
+                  >
+                    <div className="space-y-1">
                       <p className="text-sm font-medium">
-                        {event.title} - {event.petName}
+                        {appointment.type.charAt(0).toUpperCase() + appointment.type.slice(1)} - {appointment.petName}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(event.date).toLocaleDateString()}
+                        {formatDateTime(appointment.date, appointment.time)}
                       </p>
+                      {appointment.clinic && (
+                        <p className="text-sm text-muted-foreground">
+                          at {appointment.clinic}
+                        </p>
+                      )}
                     </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/pets/${appointment.petId}/appointments`);
+                      }}
+                    >
+                      View All
+                    </Button>
                   </div>
                 ))
               )}
@@ -197,21 +228,25 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activities</CardTitle>
+            <CardTitle>Medication Reminders</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {recentActivities.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No recent activities</p>
+                <p className="text-sm text-muted-foreground">No medication reminders</p>
               ) : (
                 recentActivities.map((event) => (
-                  <div key={event.id} className="flex items-center">
-                    <div className="ml-4 space-y-1">
+                  <div 
+                    key={event.id} 
+                    className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent"
+                    onClick={() => router.push(`/pets/${event.petId}/medications`)}
+                  >
+                    <div className="space-y-1">
                       <p className="text-sm font-medium">
                         {event.title} - {event.petName}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {new Date(event.createdAt).toLocaleDateString()}
+                        Due: {formatDateTime(event.date)}
                       </p>
                     </div>
                   </div>
