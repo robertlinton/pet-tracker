@@ -1,23 +1,29 @@
-'use client';
+// app/dashboard/page.tsx
+
+'use client'
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { db } from '@/lib/firebase';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs,
-  Timestamp,
-  onSnapshot,
-  orderBy,
-  limit
-} from 'firebase/firestore';
-import { Calendar, Clock, Activity, AlertCircle, PawPrint } from 'lucide-react';
-import { DashboardEvent, Appointment } from '@/types';
 import { useRouter } from 'next/navigation';
+import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Appointment, DashboardEvent } from '@/types';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { PawPrint, Calendar, Clock, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { parseISO, format, isAfter, startOfDay } from 'date-fns';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { appointmentFormSchema, AppointmentFormValues } from '@/lib/schemas/appointment';
+import { Loading } from '@/components/ui/loading';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { capitalizeFirst } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
@@ -30,10 +36,11 @@ export default function DashboardPage() {
   const [recentActivities, setRecentActivities] = useState<DashboardEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     const userId = 'current-user-id'; // Replace with actual auth
-    const today = startOfDay(new Date());
+    const now = new Date();
 
     // Set up queries
     const setupQueries = async () => {
@@ -49,6 +56,7 @@ export default function DashboardPage() {
           where('userId', '==', userId),
           where('status', '==', 'scheduled'),
           orderBy('date', 'asc'),
+          orderBy('time', 'asc'),
           limit(5)
         );
 
@@ -68,7 +76,9 @@ export default function DashboardPage() {
 
           snapshot.forEach((doc) => {
             const appointment = { id: doc.id, ...doc.data() } as Appointment;
-            if (isAfter(parseISO(appointment.date), today)) {
+            const appointmentDateTime = parseISO(`${appointment.date}T${appointment.time}`);
+
+            if (isAfter(appointmentDateTime, now)) {
               upcomingCount++;
               appointmentsData.push(appointment);
             }
@@ -80,19 +90,19 @@ export default function DashboardPage() {
 
         const unsubMedications = onSnapshot(medicationsQuery, (snapshot) => {
           const medications: DashboardEvent[] = snapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              type: 'medication',
-              title: data.name,
-              date: data.nextDueDate,
-              petName: data.petName,
-              petId: data.petId,
-              createdAt: data.createdAt
-            };
-          })
-          .slice(0, 5);
+            .map(doc => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                type: data.type,
+                title: data.name,
+                date: data.nextDueDate || data.date, // Assuming nextDueDate is for upcoming
+                petName: data.petName,
+                petId: data.petId,
+                createdAt: data.createdAt
+              };
+            })
+            .slice(0, 5);
 
           setRecentActivities(medications);
           setStats(prev => ({ 
@@ -129,9 +139,11 @@ export default function DashboardPage() {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-    </div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loading />
+      </div>
+    );
   }
 
   return (
@@ -198,7 +210,7 @@ export default function DashboardPage() {
                   >
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
-                        {appointment.type.charAt(0).toUpperCase() + appointment.type.slice(1)} - {appointment.petName}
+                        {capitalizeFirst(appointment.type)} - {appointment.petName}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {formatDateTime(appointment.date, appointment.time)}
@@ -209,16 +221,18 @@ export default function DashboardPage() {
                         </p>
                       )}
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/pets/${appointment.petId}/appointments`);
-                      }}
-                    >
-                      View All
-                    </Button>
+                    <AddAppointmentDialog petId={appointment.petId}>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/pets/${appointment.petId}/appointments`);
+                        }}
+                      >
+                        View All
+                      </Button>
+                    </AddAppointmentDialog>
                   </div>
                 ))
               )}

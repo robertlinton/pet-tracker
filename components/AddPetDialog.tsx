@@ -1,3 +1,5 @@
+// components/AddPetDialog.tsx
+
 'use client';
 
 import { useState, useRef } from 'react';
@@ -100,7 +102,7 @@ export function AddPetDialog() {
       throw new Error('Failed to upload image');
     }
 
-    const newBlob = await response.json() as PutBlobResult;
+    const newBlob = await response.json() as { url: string };
     return newBlob.url;
   };
 
@@ -201,6 +203,7 @@ export function AddPetDialog() {
                   size="sm"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isLoading}
+                  aria-label="Upload Pet Image"
                 >
                   Upload Image
                 </Button>
@@ -211,6 +214,7 @@ export function AddPetDialog() {
                     size="sm"
                     onClick={removeImage}
                     disabled={isLoading}
+                    aria-label="Remove Pet Image"
                   >
                     <X className="h-4 w-4" />
                   </Button>

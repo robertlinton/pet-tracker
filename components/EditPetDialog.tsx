@@ -1,3 +1,5 @@
+// components/EditPetDialog.tsx
+
 'use client';
 
 import { useState, useRef } from 'react';
@@ -9,7 +11,7 @@ import { doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Pet } from '@/types';
 import { Edit, Upload, X } from 'lucide-react';
-import type { PutBlobResult } from '@vercel/blob';
+import { del, put } from '@vercel/blob'; // Imported 'del' for image deletion
 import { capitalizeFirst } from "@/lib/utils";
 
 import {
@@ -50,7 +52,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog';
 import { useToast } from "@/hooks/use-toast";
 import { Loading } from "@/components/ui/loading";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -72,8 +74,8 @@ interface EditPetDialogProps {
 
 export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(pet.imageUrl || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -104,6 +106,16 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
     try {
       setIsLoading(true);
       
+      // Extract the filename from imageUrl
+      if (pet.imageUrl) {
+        const url = new URL(pet.imageUrl);
+        const filename = url.pathname.split('/').pop(); // Adjust based on your URL structure
+        
+        if (filename) {
+          await del(filename);
+        }
+      }
+
       // Update pet document to remove imageUrl
       const petRef = doc(db, 'pets', pet.id);
       await updateDoc(petRef, {
@@ -150,7 +162,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
       throw new Error('Failed to upload image');
     }
 
-    const newBlob = await response.json() as PutBlobResult;
+    const newBlob = await response.json() as { url: string };
     return newBlob.url;
   };
 
@@ -187,7 +199,6 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
 
       setIsOpen(false);
       router.refresh();
-
     } catch (error) {
       console.error('Error updating pet:', error);
       toast({
@@ -225,9 +236,22 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
     }
   };
 
+  const handleOpenChange = (open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      setPreviewImage(pet.imageUrl || null);
+      form.reset({
+        name: pet.name,
+        species: pet.species,
+        breed: pet.breed || "",
+        birthDate: pet.birthDate,
+      });
+    }
+  };
+
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>
           {children}
         </DialogTrigger>
@@ -268,6 +292,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isLoading}
+                    aria-label="Change Pet Image"
                   >
                     Change Image
                   </Button>
@@ -278,6 +303,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
                       size="sm"
                       onClick={removeImage}
                       disabled={isLoading}
+                      aria-label="Remove Pet Image"
                     >
                       {isLoading ? (
                         <Loading size={16} />

@@ -62,7 +62,7 @@ export default function Sidebar() {
     });
 
     return () => unsubscribe();
-  }, [router, pathname]);
+  }, [router, pathname, selectedPet]);
 
   // Extract pet ID from pathname if it exists
   useEffect(() => {

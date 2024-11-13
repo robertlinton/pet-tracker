@@ -1,4 +1,6 @@
-import { put } from '@vercel/blob';
+// app/api/pets/upload/route.ts
+
+import { put, del } from '@vercel/blob'; // Added 'del' for potential image deletion
 import { NextResponse } from 'next/server';
 
 export const runtime = 'edge';
@@ -35,11 +37,36 @@ export async function POST(request: Request): Promise<NextResponse> {
       addRandomSuffix: true // Add random suffix to prevent filename collisions
     });
 
-    return NextResponse.json(uploadResult);
+    // Assuming uploadResult contains a 'url' property
+    return NextResponse.json({ url: uploadResult.url });
   } catch (error) {
     console.error('Error uploading to Vercel Blob:', error);
     return NextResponse.json(
       { error: 'Failed to upload file' },
+      { status: 500 }
+    );
+  }
+}
+
+// Optional: Implement DELETE if needed
+export async function DELETE(request: Request): Promise<NextResponse> {
+  const { searchParams } = new URL(request.url);
+  const filename = searchParams.get('filename');
+
+  if (!filename) {
+    return NextResponse.json(
+      { error: 'Filename is required for deletion' },
+      { status: 400 }
+    );
+  }
+
+  try {
+    await del(filename);
+    return NextResponse.json({ message: 'File deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting from Vercel Blob:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete file' },
       { status: 500 }
     );
   }

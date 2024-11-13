@@ -1,3 +1,5 @@
+// components/EditAppointmentDialog.tsx
+
 'use client';
 
 import { useState } from 'react';
@@ -49,6 +51,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loading } from '@/components/ui/loading';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { del } from '@vercel/blob'; // Import 'del' for image deletion
 
 interface EditAppointmentDialogProps {
   children: React.ReactNode;
@@ -133,7 +137,15 @@ export function EditAppointmentDialog({ children, appointment }: EditAppointment
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      form.reset();
+      form.reset({
+        type: appointment.type || 'checkup',
+        date: appointment.date || '',
+        time: appointment.time || '',
+        vetName: appointment.vetName || '',
+        clinic: appointment.clinic || '',
+        notes: appointment.notes || '',
+        status: appointment.status || 'scheduled',
+      });
     }
     setIsOpen(open);
   };
