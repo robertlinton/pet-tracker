@@ -6,6 +6,7 @@ const publicPaths = [
   '/signin',
   '/signup',
   '/reset-password',
+  '/mobile-not-supported', // Added the mobile-not-supported page to public paths
   // Add any other public paths here
 ];
 
@@ -18,15 +19,6 @@ const authPaths = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Get the token from cookies
-  const token = request.cookies.get('__session')?.value;
-
-  // Check if the path is public
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
-  
-  // Check if the path is an auth path that should redirect when authenticated
-  const isAuthPath = authPaths.some(path => pathname.startsWith(path));
-
   // Handle API routes and static files
   if (
     pathname.startsWith('/_next') || // Next.js static files
@@ -36,6 +28,29 @@ export function middleware(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
+
+  // Detect mobile user agents
+  const userAgent = request.headers.get('user-agent') || '';
+  const mobileRegex = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
+
+  if (mobileRegex.test(userAgent)) {
+    // Allow access to the mobile-not-supported page
+    if (pathname === '/mobile-not-supported') {
+      return NextResponse.next();
+    }
+
+    // Redirect mobile users to /mobile-not-supported
+    return NextResponse.redirect(new URL('/mobile-not-supported', request.url));
+  }
+
+  // Get the token from cookies
+  const token = request.cookies.get('__session')?.value;
+
+  // Check if the path is public
+  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+  
+  // Check if the path is an auth path that should redirect when authenticated
+  const isAuthPath = authPaths.some(path => pathname.startsWith(path));
 
   // If path is public and user is not authenticated, allow access
   if (isPublicPath && !token) {
