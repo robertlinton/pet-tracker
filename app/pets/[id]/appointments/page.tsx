@@ -4,15 +4,17 @@ import { AppointmentsClient } from './appointments-client';
 import { Loading } from '@/components/ui/loading';
 
 interface AppointmentsPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function AppointmentsPage({ params }: AppointmentsPageProps) {
+export default async function AppointmentsPage({ params }: AppointmentsPageProps) {
+  const resolvedParams = await params;
+
   return (
     <Suspense fallback={<Loading />}>
-      <AppointmentsClient petId={params.id} />
+      <AppointmentsClient petId={resolvedParams.id} />
     </Suspense>
   );
 }
