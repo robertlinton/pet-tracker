@@ -1,25 +1,20 @@
-import React from 'react';
-import { useAuth } from '@/lib/context/auth-context';
-import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
+// app/(protected)/pets/[id]/medications/page.tsx
+import { Suspense } from 'react';
+import { MedicationsClient } from './medications-client';
+import { Loading } from '@/components/ui/loading';
 
 interface MedicationsPageProps {
   params: {
     id: string;
-  };
+  }
+  searchParams: {
+    [key: string]: string | string[] | undefined;
+  }
 }
-
-const MedicationsPage: React.FC<MedicationsPageProps> = ({ params }) => {
-  const { id } = params;
-  const { user } = useAuth();
-  const router = useRouter();
-  const { toast } = useToast();
-
+export default function MedicationsPage({ params }: MedicationsPageProps) {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Medications for Pet ID: {id}</h1>
-    </div>
+    <Suspense fallback={<Loading />}>
+      <MedicationsClient petId={params.id} />
+    </Suspense>
   );
-};
-
-export default MedicationsPage;
+}
