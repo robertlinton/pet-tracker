@@ -15,7 +15,7 @@ import {
   getDoc,
   Timestamp,
 } from 'firebase/firestore';
-import { format, isAfter, parseISO } from 'date-fns';
+import { format, isAfter, isToday, startOfDay, parseISO } from 'date-fns';
 import { Plus, Pill } from 'lucide-react';
 import { MedicalRecord } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,12 @@ export function MedicationsClient({ petId }: MedicationsClientProps) {
         return true;
       } catch (error) {
         console.error('Error verifying pet ownership:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "An unexpected error occurred. Please try again.",
+        });
+        router.push('/dashboard');
         return false;
       }
     };
@@ -79,20 +85,37 @@ export function MedicationsClient({ petId }: MedicationsClientProps) {
         (snapshot) => {
           const medicationsData: MedicalRecord[] = [];
           snapshot.forEach((doc) => {
+            const data = doc.data();
             medicationsData.push({ 
               id: doc.id,
-              ...doc.data(),
-              // Convert Firestore Timestamps to strings
-              createdAt: doc.data().createdAt instanceof Timestamp 
-                ? doc.data().createdAt.toDate().toISOString()
-                : doc.data().createdAt,
-              updatedAt: doc.data().updatedAt instanceof Timestamp 
-                ? doc.data().updatedAt.toDate().toISOString()
-                : doc.data().updatedAt,
+              ...data,
+              // Convert Firestore Timestamps to ISO strings
+              createdAt: data.createdAt instanceof Timestamp 
+                ? data.createdAt.toDate().toISOString()
+                : data.createdAt,
+              updatedAt: data.updatedAt instanceof Timestamp 
+                ? data.updatedAt.toDate().toISOString()
+                : data.updatedAt,
+              nextDueDate: data.nextDueDate instanceof Timestamp 
+                ? data.nextDueDate.toDate().toISOString()
+                : data.nextDueDate,
             } as MedicalRecord);
           });
           setMedications(medicationsData);
           setIsLoading(false);
+
+          // Debugging Logs (You can remove these in production)
+          medicationsData.forEach(med => {
+            console.log(`Medication ID: ${med.id}`);
+            console.log(`Status: ${med.status}`);
+            console.log(`Next Due Date: ${med.nextDueDate}`);
+            if (med.nextDueDate) {
+              const dueDate = parseISO(med.nextDueDate);
+              const now = new Date();
+              console.log(`isAfter: ${isAfter(dueDate, now)}`);
+              console.log(`isToday: ${isToday(dueDate)}`);
+            }
+          });
         },
         (error) => {
           console.error('Error fetching medications:', error);
@@ -111,13 +134,27 @@ export function MedicationsClient({ petId }: MedicationsClientProps) {
     setupMedications();
   }, [petId, user, toast, router]);
 
-  const activeMedications = medications.filter(
-    med => med.status === 'active' && (!med.nextDueDate || isAfter(parseISO(med.nextDueDate), new Date()))
-  );
+  // Normalize today's date to start of the day to eliminate time discrepancies
+  const todayStart = startOfDay(new Date());
 
-  const pastMedications = medications.filter(
-    med => med.status !== 'active' || (med.nextDueDate && !isAfter(parseISO(med.nextDueDate), new Date()))
-  );
+  // Categorize medications
+  const activeMedications = medications.filter(med => {
+    if (med.status !== 'active') return false;
+
+    if (!med.nextDueDate) return true;
+
+    const dueDate = startOfDay(parseISO(med.nextDueDate));
+    return isAfter(dueDate, todayStart) || isToday(dueDate);
+  });
+
+  const pastMedications = medications.filter(med => {
+    if (med.status !== 'active') return true;
+
+    if (!med.nextDueDate) return false;
+
+    const dueDate = startOfDay(parseISO(med.nextDueDate));
+    return !isAfter(dueDate, todayStart) && !isToday(dueDate);
+  });
 
   if (isLoading) {
     return (
