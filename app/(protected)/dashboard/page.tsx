@@ -1,5 +1,7 @@
 'use client';
 
+// app/(protected)/dashboard/page.tsx
+
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/context/auth-context';
 import { useRouter } from 'next/navigation';
@@ -13,7 +15,7 @@ import {
   limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { format, isAfter, parseISO, startOfDay } from 'date-fns';
+import { format, isAfter, parseISO, startOfDay, isToday } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,7 +38,7 @@ import { capitalizeFirst, capitalizeWords } from '@/lib/utils';
 interface DashboardStats {
   totalPets: number;
   upcomingAppointments: number;
-  dueMedications: number;
+  medicationsAlert: number;
   healthAlerts: number;
 }
 
@@ -86,7 +88,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({
     totalPets: 0,
     upcomingAppointments: 0,
-    dueMedications: 0,
+    medicationsAlert: 0,
     healthAlerts: 0,
   });
   const [data, setData] = useState<DashboardData>({
@@ -153,10 +155,14 @@ export default function DashboardPage() {
         } as Medication))
         .filter(med => med.nextDueDate && isAfter(parseISO(med.nextDueDate), today));
 
+      const medicationsDueToday = medications.filter(med => 
+        med.nextDueDate && isToday(parseISO(med.nextDueDate))
+      );  
+
       setStats(prev => ({ 
         ...prev, 
-        dueMedications: medications.length,
-        healthAlerts: medications.length + (data.recentAppointments?.length || 0)
+        medicationsAlert: medicationsDueToday.length,
+        healthAlerts: medicationsDueToday.length + (data.recentAppointments?.length || 0)
       }));
       setData(prev => ({ ...prev, recentMedications: medications }));
       setIsLoading(false);
@@ -207,8 +213,10 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center p-6">
             <Pill className="h-8 w-8 mb-2 text-primary" />
-            <p className="text-2xl font-bold">{stats.dueMedications}</p>
-            <p className="text-sm text-muted-foreground">Due Medications</p>
+            <p className="text-2xl font-bold">{stats.medicationsAlert}</p>
+            <p className="text-sm text-muted-foreground">
+              {stats.medicationsAlert === 1 ? 'Medication Due Today' : stats.medicationsAlert > 1 ? 'Medications Due Today' : 'No Medications Due'}
+            </p>
           </CardContent>
         </Card>
         <Card>
