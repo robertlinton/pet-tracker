@@ -1,23 +1,4 @@
 ========================================
-app/(protected)/pets/[id]/notes/page.tsx
-========================================
-// app/pets/[id]/notes/page.tsx
-
-'use client';
-
-import React from 'react';
-
-export default function NotesPage() {
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Notes</h1>
-      <p className="mt-4 text-gray-600">Coming soon...</p>
-    </div>
-  );
-}
-
-
-========================================
 app/(protected)/pets/[id]/weight/page.tsx
 ========================================
 // app/pets/[id]/weight-tracking/page.tsx
@@ -104,6 +85,29 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 }
+
+========================================
+app/mobile-not-supported/page.tsx
+========================================
+// app/mobile-not-supported/page.tsx
+
+'use client';
+
+import React from 'react';
+
+export default function MobileNotSupportedPage() {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background text-foreground">
+      <h1 className="text-3xl font-bold mb-4 text-center">
+        Site Not Available on Mobile Devices
+      </h1>
+      <p className="text-lg text-center text-muted-foreground">
+        This application is not available on mobile devices. Please access it from a desktop or laptop computer.
+      </p>
+    </div>
+  );
+}
+
 
 ========================================
 components/AddAppointmentDialog.tsx
@@ -359,6 +363,316 @@ export function AddAppointmentDialog({ children, petId }: AddAppointmentDialogPr
                   </>
                 ) : (
                   'Schedule Appointment'
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+========================================
+components/AddMedicationDialog.tsx
+========================================
+// components/AddMedicationDialog.tsx
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { medicationFormSchema, type MedicationFormValues } from '@/lib/schemas/medication';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from '@/hooks/use-toast';
+import { Loading } from '@/components/ui/loading';
+import { useAuth } from '@/lib/context/auth-context';
+
+interface AddMedicationDialogProps {
+  children: React.ReactNode;
+  petId: string;
+  petName?: string;
+}
+
+export function AddMedicationDialog({ children, petId, petName }: AddMedicationDialogProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  const form = useForm<MedicationFormValues>({
+    resolver: zodResolver(medicationFormSchema),
+    defaultValues: {
+      type: 'medication',
+      name: '',
+      date: '',
+      nextDueDate: '',
+      prescribedBy: '',
+      dosage: '',
+      frequency: '',
+      duration: '',
+      notes: '',
+      status: 'active',
+    }
+  });
+
+  async function onSubmit(data: MedicationFormValues) {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to add medications.",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Add medication document
+      await addDoc(collection(db, 'medications'), {
+        ...data,
+        petId,
+        petName,
+        userId: user.uid,
+        status: data.status || 'active',  // Ensure status is set
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      toast({
+        title: 'Success',
+        description: 'Medication has been added successfully.',
+      });
+
+      setIsOpen(false);
+      form.reset();
+      router.refresh();
+
+    } catch (error) {
+      console.error('Error adding medication:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'There was a problem adding the medication. Please try again.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      form.reset();
+    }
+    setIsOpen(open);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Add Medication</DialogTitle>
+          <DialogDescription>
+            Add a new medication or treatment for your pet
+          </DialogDescription>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <ScrollArea className="h-[60vh] pr-4">
+              <div className="space-y-4 pb-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter medication name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Type</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="medication">Medication</SelectItem>
+                      <SelectItem value="vaccination">Vaccination</SelectItem>
+                      <SelectItem value="procedure">Procedure</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="nextDueDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Next Due Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Optional: Set a reminder for the next dose or follow-up
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="prescribedBy"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prescribed By</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter prescriber's name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="dosage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dosage</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter dosage" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="frequency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Frequency</FormLabel>
+                  <FormControl>
+                    <Input placeholder="How often to administer" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="duration"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Duration</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Treatment duration" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Add any additional notes"
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+              </div>
+            </ScrollArea>
+            <DialogFooter>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loading className="mr-2" size={16} />
+                    Adding...
+                  </>
+                ) : (
+                  'Add Medication'
                 )}
               </Button>
             </DialogFooter>
@@ -1198,6 +1512,422 @@ export function EditAppointmentDialog({ children, appointment }: EditAppointment
 
 
 ========================================
+components/EditMedicationDialog.tsx
+========================================
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { doc, updateDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { medicationFormSchema, type MedicationFormValues } from '@/lib/schemas/medication';
+import { MedicalRecord } from '@/types';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from '@/hooks/use-toast';
+import { Loading } from '@/components/ui/loading';
+import { useAuth } from '@/lib/context/auth-context';
+
+interface EditMedicationDialogProps {
+  children: React.ReactNode;
+  medication: MedicalRecord;
+}
+
+export function EditMedicationDialog({ children, medication }: EditMedicationDialogProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  const form = useForm<MedicationFormValues>({
+    resolver: zodResolver(medicationFormSchema),
+    defaultValues: {
+      name: medication.name || '',
+      type: medication.type || 'medication',
+      date: medication.date || '',
+      nextDueDate: medication.nextDueDate || '',
+      prescribedBy: medication.prescribedBy || '',
+      dosage: medication.dosage || '',
+      frequency: medication.frequency || '',
+      duration: medication.duration || '',
+      notes: medication.notes || '',
+      status: medication.status || 'active',
+    },
+  });
+
+  async function onSubmit(data: MedicationFormValues) {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to update medications.",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Verify ownership
+      const medicationRef = doc(db, 'medications', medication.id);
+      const medicationDoc = await getDoc(medicationRef);
+      
+      if (!medicationDoc.exists() || medicationDoc.data()?.userId !== user.uid) {
+        throw new Error('Unauthorized to update this medication');
+      }
+
+      await updateDoc(medicationRef, {
+        ...data,
+        userId: user.uid,
+        updatedAt: serverTimestamp(),
+      });
+
+      toast({
+        title: "Success",
+        description: "Medication has been updated successfully.",
+      });
+
+      setIsOpen(false);
+      router.refresh();
+
+    } catch (error) {
+      console.error('Error updating medication:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'There was a problem updating the medication. Please try again.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to delete medications.",
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Verify ownership before deletion
+      const medicationRef = doc(db, 'medications', medication.id);
+      const medicationDoc = await getDoc(medicationRef);
+      
+      if (!medicationDoc.exists() || medicationDoc.data()?.userId !== user.uid) {
+        throw new Error('Unauthorized to delete this medication');
+      }
+
+      await deleteDoc(medicationRef);
+
+      toast({
+        title: "Success",
+        description: "Medication has been deleted successfully.",
+      });
+
+      setIsDeleteDialogOpen(false);
+      setIsOpen(false);
+      router.refresh();
+    } catch (error) {
+      console.error('Error deleting medication:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "There was a problem deleting the medication.",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        {children}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px] max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Edit Medication</DialogTitle>
+          <DialogDescription>
+            Update medication details or mark as completed
+          </DialogDescription>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <ScrollArea className="h-[60vh] pr-4">
+              <div className="space-y-4 pb-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Type</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="medication">Medication</SelectItem>
+                      <SelectItem value="vaccination">Vaccination</SelectItem>
+                      <SelectItem value="procedure">Procedure</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="date"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Start Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="nextDueDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Next Due Date</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} value={field.value || ''} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="prescribedBy"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Prescribed By</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="dosage"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dosage</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="frequency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Frequency</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="duration"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Duration</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="status"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Status</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="discontinued">Discontinued</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+              </div>
+            </ScrollArea>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <div className="flex w-full justify-between">
+                <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button type="button" variant="destructive" disabled={isLoading}>
+                      Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete this
+                        medication record.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleDelete}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loading className="mr-2" size={16} />
+                            Deleting...
+                          </>
+                        ) : (
+                          'Delete'
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loading className="mr-2" size={16} />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              </div>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+========================================
 components/EditPetDialog.tsx
 ========================================
 'use client';
@@ -1696,6 +2426,271 @@ import {
       </svg>
     ),
   }
+
+========================================
+components/MedicationCard.tsx
+========================================
+// components/MedicationCard.tsx
+'use client';
+
+import { useState } from 'react';
+import { format, parseISO } from 'date-fns';
+import { 
+  Pill, 
+  Calendar, 
+  Clock, 
+  User, 
+  AlertCircle, 
+  Building2, 
+  Repeat, 
+  TimerOff, 
+  RefreshCcw,
+  Droplet,
+  Package,
+  Syringe,
+  FileWarning,
+  ChevronDown,
+  ChevronUp
+} from 'lucide-react';
+import { MedicalRecord } from '@/types';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { EditMedicationDialog } from './EditMedicationDialog';
+import { capitalizeFirst } from '@/lib/utils';
+import { 
+  getStatusBadgeVariant, 
+  getTypeBadgeVariant,
+  routeLabels,
+  scheduleLabels,
+  statusLabels,
+  typeLabels
+} from '@/lib/schemas/medication';
+
+interface MedicationCardProps {
+  medication: MedicalRecord;
+  isActive: boolean;
+  showDetails?: boolean;
+}
+
+export function MedicationCard({ medication, isActive, showDetails = false }: MedicationCardProps) {
+  const [isOpen, setIsOpen] = useState(showDetails);
+
+  const formattedStartDate = format(parseISO(medication.date), 'PPP');
+  const formattedNextDueDate = medication.nextDueDate 
+    ? format(parseISO(medication.nextDueDate), 'PPP')
+    : null;
+  const formattedEndDate = medication.endDate 
+    ? format(parseISO(medication.endDate), 'PPP')
+    : null;
+  const formattedCompletedDate = medication.completedDate 
+    ? format(parseISO(medication.completedDate), 'PPP')
+    : null;
+
+  const getScheduleIcon = () => {
+    switch (medication.schedule) {
+      case 'once':
+        return <TimerOff className="h-4 w-4" />;
+      case 'as_needed':
+        return <RefreshCcw className="h-4 w-4" />;
+      default:
+        return <Repeat className="h-4 w-4" />;
+    }
+  };
+
+  const getRouteIcon = () => {
+    switch (medication.administrationRoute) {
+      case 'oral':
+        return <Pill className="h-4 w-4" />;
+      case 'injection':
+        return <Syringe className="h-4 w-4" />;
+      case 'topical':
+      case 'drops':
+        return <Droplet className="h-4 w-4" />;
+      default:
+        return <Package className="h-4 w-4" />;
+    }
+  };
+
+  return (
+    <Card>
+      <CardContent className="p-6">
+        <div className="flex flex-col space-y-4">
+          {/* Header Section */}
+          <div className="flex justify-between items-start">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant={getStatusBadgeVariant(medication.status)}>
+                  {statusLabels[medication.status]}
+                </Badge>
+                <Badge variant={getTypeBadgeVariant(medication.type)}>
+                  {typeLabels[medication.type]}
+                </Badge>
+                {medication.reminderEnabled && (
+                  <Badge variant="secondary">
+                    Reminders On
+                  </Badge>
+                )}
+              </div>
+              <h3 className="text-lg font-semibold">{medication.name}</h3>
+              {medication.reason && (
+                <p className="text-sm text-muted-foreground">{medication.reason}</p>
+              )}
+            </div>
+            <EditMedicationDialog medication={medication}>
+              <Button variant="outline" size="sm">Edit</Button>
+            </EditMedicationDialog>
+          </div>
+
+          {/* Basic Info */}
+          <div className="flex flex-wrap gap-4 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              Started: {formattedStartDate}
+            </div>
+            {formattedNextDueDate && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                Next: {formattedNextDueDate}
+              </div>
+            )}
+            {medication.prescribedBy && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <User className="h-4 w-4" />
+                Dr. {medication.prescribedBy}
+              </div>
+            )}
+          </div>
+
+          {/* Collapsible Details */}
+          <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full justify-between">
+                {isOpen ? 'Show Less' : 'Show More'}
+                {isOpen ? 
+                  <ChevronUp className="h-4 w-4 ml-2" /> : 
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                }
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4">
+              {/* Schedule Information */}
+              <div className="mt-4 grid gap-4">
+                <div className="flex items-center gap-2">
+                  {getScheduleIcon()}
+                  <span className="font-medium">
+                    {scheduleLabels[medication.schedule]}
+                    {medication.scheduleDetails && ` - ${medication.scheduleDetails}`}
+                  </span>
+                </div>
+
+                {/* Completion Information */}
+                {(medication.status === 'completed' || medication.status === 'discontinued') && (
+                  <div className="space-y-1 border-l-2 border-muted pl-4">
+                    <p className="text-sm font-medium">
+                      {medication.status === 'completed' ? 'Completed' : 'Discontinued'} on{' '}
+                      {formattedCompletedDate}
+                    </p>
+                    {medication.completionNotes && (
+                      <p className="text-sm text-muted-foreground">
+                        {medication.completionNotes}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {/* Treatment Duration */}
+                {medication.duration && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span>{medication.duration}</span>
+                  </div>
+                )}
+
+                {/* Dosing Information */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    {getRouteIcon()}
+                    <span>{routeLabels[medication.administrationRoute]}</span>
+                  </div>
+                  {medication.dosage && (
+                    <div className="text-sm text-muted-foreground">
+                      Dosage: {medication.dosage}
+                      {medication.dosageUnit && ` ${medication.dosageUnit}`}
+                    </div>
+                  )}
+                  {medication.frequency && (
+                    <div className="text-sm text-muted-foreground">
+                      Frequency: {medication.frequency}
+                    </div>
+                  )}
+                </div>
+
+                {/* Prescription Details */}
+                {(medication.pharmacy || medication.rxNumber || medication.refillsTotal > 0) && (
+                  <div className="space-y-1">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      Prescription Details
+                    </h4>
+                    {medication.pharmacy && (
+                      <div className="text-sm text-muted-foreground">
+                        Pharmacy: {medication.pharmacy}
+                      </div>
+                    )}
+                    {medication.rxNumber && (
+                      <div className="text-sm text-muted-foreground">
+                        RX#: {medication.rxNumber}
+                      </div>
+                    )}
+                    {medication.refillsTotal > 0 && (
+                      <div className="text-sm text-muted-foreground">
+                        Refills: {medication.refillsRemaining}/{medication.refillsTotal}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Side Effects & Notes */}
+                {(medication.sideEffects || medication.notes) && (
+                  <div className="space-y-1">
+                    <h4 className="font-medium flex items-center gap-2">
+                      <FileWarning className="h-4 w-4" />
+                      Additional Information
+                    </h4>
+                    {medication.sideEffects && (
+                      <div className="text-sm text-muted-foreground">
+                        <span className="font-medium">Side Effects:</span> {medication.sideEffects}
+                      </div>
+                    )}
+                    {medication.notes && (
+                      <div className="text-sm text-muted-foreground">
+                        <span className="font-medium">Notes:</span> {medication.notes}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Reminder Settings */}
+                {medication.reminderEnabled && medication.reminderTime && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-4 w-4" />
+                    <span>Daily reminder at {format(parseISO(`2000-01-01T${medication.reminderTime}`), 'h:mm a')}</span>
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 ========================================
 components/Sidebar.tsx
@@ -2479,6 +3474,174 @@ export const defaultValues: Partial<AppointmentFormValues> = {
 }
 
 ========================================
+lib/schemas/medication.ts
+========================================
+// lib/schemas/medication.ts
+import * as z from "zod"
+
+// Define common enums for consistent usage
+export const medicationTypes = ['medication', 'vaccination', 'procedure'] as const;
+export const medicationStatus = ['active', 'completed', 'discontinued', 'scheduled'] as const;
+export const administrationRoutes = [
+  'oral',
+  'injection',
+  'topical',
+  'drops',
+  'inhaled',
+  'other'
+] as const;
+
+export const scheduleTypes = [
+  'once',
+  'daily',
+  'twice_daily',
+  'three_times_daily',
+  'weekly',
+  'monthly',
+  'as_needed',
+  'other'
+] as const;
+
+// Human readable labels
+export const statusLabels = {
+  active: 'Active',
+  completed: 'Completed',
+  discontinued: 'Discontinued',
+  scheduled: 'Scheduled'
+} as const;
+
+export const typeLabels = {
+  medication: 'Medication',
+  vaccination: 'Vaccination',
+  procedure: 'Procedure'
+} as const;
+
+export const routeLabels = {
+  oral: 'Oral',
+  injection: 'Injection',
+  topical: 'Topical',
+  drops: 'Drops',
+  inhaled: 'Inhaled',
+  other: 'Other'
+} as const;
+
+export const scheduleLabels = {
+  once: 'One time only',
+  daily: 'Once daily',
+  twice_daily: 'Twice daily',
+  three_times_daily: 'Three times daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  as_needed: 'As needed',
+  other: 'Other'
+} as const;
+
+export const medicationFormSchema = z.object({
+  name: z.string().min(1, "Medication name is required").max(100),
+  type: z.enum(medicationTypes, {
+    required_error: "Please select a type",
+  }),
+  // Basic Information
+  date: z.string({
+    required_error: "Please select a start date",
+  }).regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+  nextDueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format").or(z.literal('')).default(''),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format").or(z.literal('')).default(''),
+  prescribedBy: z.string().max(100, "Name cannot exceed 100 characters").default(''),
+  
+  // Status and Schedule
+  status: z.enum(medicationStatus).default('active'),
+  administrationRoute: z.enum(administrationRoutes).default('oral'),
+  schedule: z.enum(scheduleTypes).default('daily'),
+  scheduleDetails: z.string().max(200, "Schedule details cannot exceed 200 characters").default(''),
+  
+  // Dosage Information
+  dosage: z.string().max(100, "Dosage cannot exceed 100 characters").default(''),
+  dosageUnit: z.string().max(20, "Unit cannot exceed 20 characters").default(''),
+  frequency: z.string().max(100, "Frequency cannot exceed 100 characters").default(''),
+  duration: z.string().max(100, "Duration cannot exceed 100 characters").default(''),
+  
+  // Prescription Details
+  rxNumber: z.string().max(50, "RX number cannot exceed 50 characters").default(''),
+  pharmacy: z.string().max(100, "Pharmacy name cannot exceed 100 characters").default(''),
+  refillsTotal: z.number().min(0).default(0),
+  refillsRemaining: z.number().min(0).default(0),
+  
+  // Additional Information
+  reason: z.string().max(200, "Reason cannot exceed 200 characters").default(''),
+  notes: z.string().max(500, "Notes cannot exceed 500 characters").default(''),
+  sideEffects: z.string().max(300, "Side effects cannot exceed 300 characters").default(''),
+  
+  // Completion Information
+  completedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format").or(z.literal('')).default(''),
+  completionNotes: z.string().max(300, "Completion notes cannot exceed 300 characters").default(''),
+  
+  // Reminders
+  reminderEnabled: z.boolean().default(false),
+  reminderTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Invalid time format").or(z.literal('')).default(''),
+})
+
+export type MedicationFormValues = z.infer<typeof medicationFormSchema>
+
+export const defaultValues: MedicationFormValues = {
+  name: '',
+  type: 'medication',
+  date: '',
+  nextDueDate: '',
+  endDate: '',
+  prescribedBy: '',
+  status: 'active',
+  administrationRoute: 'oral',
+  schedule: 'daily',
+  scheduleDetails: '',
+  dosage: '',
+  dosageUnit: '',
+  frequency: '',
+  duration: '',
+  rxNumber: '',
+  pharmacy: '',
+  refillsTotal: 0,
+  refillsRemaining: 0,
+  reason: '',
+  notes: '',
+  sideEffects: '',
+  completedDate: '',
+  completionNotes: '',
+  reminderEnabled: false,
+  reminderTime: '',
+}
+
+// Helper function to get badge variant based on status
+export const getStatusBadgeVariant = (status: string) => {
+  switch (status) {
+    case 'active':
+      return 'default';
+    case 'completed':
+      return 'secondary';
+    case 'discontinued':
+      return 'destructive';
+    case 'scheduled':
+      return 'outline';
+    default:
+      return 'default';
+  }
+}
+
+// Helper function to get badge variant based on type
+export const getTypeBadgeVariant = (type: string) => {
+  switch (type) {
+    case 'medication':
+      return 'default';
+    case 'vaccination':
+      return 'secondary';
+    case 'procedure':
+      return 'outline';
+    default:
+      return 'default';
+  }
+}
+
+========================================
 lib/schemas/pet.ts
 ========================================
 // lib/schemas/pet.ts
@@ -2620,9 +3783,28 @@ export interface MedicalRecord {
   type: 'medication' | 'vaccination' | 'procedure';
   name: string;
   date: string;
-  notes?: string;
   nextDueDate?: string;
+  endDate?: string;
   prescribedBy?: string;
+  status: 'active' | 'completed' | 'discontinued' | 'scheduled';
+  administrationRoute: 'oral' | 'injection' | 'topical' | 'drops' | 'inhaled' | 'other';
+  schedule: 'once' | 'daily' | 'twice_daily' | 'three_times_daily' | 'weekly' | 'monthly' | 'as_needed' | 'other';
+  scheduleDetails?: string;
+  dosage?: string;
+  dosageUnit?: string;
+  frequency?: string;
+  duration?: string;
+  rxNumber?: string;
+  pharmacy?: string;
+  refillsTotal: number;
+  refillsRemaining: number;
+  reason?: string;
+  notes?: string;
+  sideEffects?: string;
+  completedDate?: string;
+  completionNotes?: string;
+  reminderEnabled: boolean;
+  reminderTime?: string;
   userId: string;
   createdAt: string | FieldValue;
   updatedAt: string | FieldValue;
@@ -2689,4 +3871,5 @@ export interface DashboardEvent {
   petId: string;  // Added petId
   createdAt: string;
 }
+
 

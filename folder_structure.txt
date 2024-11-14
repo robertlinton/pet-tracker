@@ -3,6 +3,8 @@ Root: my-app/
 ========================================
 
 - my-app/
+    - combined_files_part1.txt
+    - combined_files_part2.txt
     - middleware.ts
     - app/
         - layout.tsx
@@ -35,6 +37,7 @@ Root: my-app/
                     - feeding/
                         - page.tsx
                     - medications/
+                        - medications-client.tsx
                         - page.tsx
                     - notes/
                         - page.tsx
@@ -50,11 +53,14 @@ Root: my-app/
             - page.tsx
     - components/
         - AddAppointmentDialog.tsx
+        - AddMedicationDialog.tsx
         - AddPetDialog.tsx
         - AppointmentCard.tsx
         - EditAppointmentDialog.tsx
+        - EditMedicationDialog.tsx
         - EditPetDialog.tsx
         - icons.tsx
+        - MedicationCard.tsx
         - Sidebar.tsx
         - auth/
             - PrivateRoute.tsx
@@ -65,6 +71,7 @@ Root: my-app/
             - badge.tsx
             - button.tsx
             - card.tsx
+            - collapsible.tsx
             - dialog.tsx
             - dropdown-menu.tsx
             - form.tsx
@@ -90,6 +97,7 @@ Root: my-app/
             - auth-context.tsx
         - schemas/
             - appointment.ts
+            - medication.ts
             - pet.ts
     - styles/
         - globals.css

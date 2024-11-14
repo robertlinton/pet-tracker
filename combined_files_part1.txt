@@ -1,4 +1,14 @@
 ========================================
+combined_files_part1.txt
+========================================
+
+
+========================================
+combined_files_part2.txt
+========================================
+// File not found: combined_files_part2.txt
+
+========================================
 middleware.ts
 ========================================
 import { NextResponse } from 'next/server';
@@ -775,11 +785,11 @@ export default function ProtectedLayout({
 ========================================
 app/(protected)/dashboard/page.tsx
 ========================================
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { useAuth } from '@/lib/context/auth-context'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react';
+import { useAuth } from '@/lib/context/auth-context';
+import { useRouter } from 'next/navigation';
 import {
   collection,
   query,
@@ -788,13 +798,13 @@ import {
   Timestamp,
   orderBy,
   limit,
-  DocumentData
-} from 'firebase/firestore'
-import { db } from '@/lib/firebase'
-import { format, isAfter, parseISO, startOfDay } from 'date-fns'
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { format, isAfter, parseISO, startOfDay } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Calendar,
   Clock,
@@ -803,79 +813,87 @@ import {
   PlusCircle,
   ArrowRight,
   PawPrint,
-} from 'lucide-react'
-import { Loading } from '@/components/ui/loading'
-import { AddPetDialog } from '@/components/AddPetDialog'
-import { capitalizeFirst, capitalizeWords } from '@/lib/utils'
+  Pill,
+} from 'lucide-react';
+import { Loading } from '@/components/ui/loading';
+import { AddPetDialog } from '@/components/AddPetDialog';
+import { Badge } from "@/components/ui/badge";
+import { capitalizeFirst, capitalizeWords } from '@/lib/utils';
 
 interface DashboardStats {
-  totalPets: number
-  upcomingAppointments: number
-  dueMedications: number
-  healthAlerts: number
+  totalPets: number;
+  upcomingAppointments: number;
+  dueMedications: number;
+  healthAlerts: number;
 }
 
 interface Pet {
-  id: string
-  name: string
-  species: string
-  breed?: string
-  imageUrl?: string
-  userId: string
-  createdAt: Timestamp
+  id: string;
+  name: string;
+  species: string;
+  breed?: string;
+  imageUrl?: string;
+  userId: string;
+  createdAt: Timestamp;
 }
 
 interface Appointment {
-  id: string
-  petId: string
-  type: string
-  date: string
-  time: string
-  status: string
-  userId: string
+  id: string;
+  petId: string;
+  petName: string;
+  type: string;
+  date: string;
+  time: string;
+  status: string;
+  userId: string;
 }
 
 interface Medication {
-  id: string
-  petId: string
-  name: string
-  nextDueDate: string
-  userId: string
+  id: string;
+  petId: string;
+  petName: string;
+  name: string;
+  type: 'medication' | 'vaccination' | 'procedure';
+  date: string;
+  nextDueDate?: string;
+  prescribedBy?: string;
+  status: 'active' | 'completed' | 'discontinued';
+  userId: string;
 }
 
 interface DashboardData {
-  recentPets: Pet[]
-  recentAppointments: Appointment[]
-  recentMedications: Medication[]
+  recentPets: Pet[];
+  recentAppointments: Appointment[];
+  recentMedications: Medication[];
 }
 
-export default function Component() {
-  const { user } = useAuth()
-  const [isLoading, setIsLoading] = useState(true)
+export default function DashboardPage() {
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalPets: 0,
     upcomingAppointments: 0,
     dueMedications: 0,
     healthAlerts: 0,
-  })
+  });
   const [data, setData] = useState<DashboardData>({
     recentPets: [],
     recentAppointments: [],
     recentMedications: [],
-  })
-  const router = useRouter()
+  });
+  const router = useRouter();
 
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
 
-    const today = startOfDay(new Date())
+    const today = startOfDay(new Date());
 
     const petsQuery = query(
       collection(db, 'pets'),
       where('userId', '==', user.uid),
       orderBy('createdAt', 'desc'),
       limit(5)
-    )
+    );
 
     const appointmentsQuery = query(
       collection(db, 'appointments'),
@@ -883,23 +901,24 @@ export default function Component() {
       where('status', '==', 'scheduled'),
       orderBy('date', 'asc'),
       limit(5)
-    )
+    );
 
     const medicationsQuery = query(
       collection(db, 'medications'),
       where('userId', '==', user.uid),
+      where('status', '==', 'active'),
       orderBy('nextDueDate', 'asc'),
       limit(5)
-    )
+    );
 
     const unsubPets = onSnapshot(petsQuery, (snapshot) => {
       const pets: Pet[] = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Pet))
-      setStats(prev => ({ ...prev, totalPets: snapshot.size }))
-      setData(prev => ({ ...prev, recentPets: pets }))
-    })
+      } as Pet));
+      setStats(prev => ({ ...prev, totalPets: snapshot.size }));
+      setData(prev => ({ ...prev, recentPets: pets }));
+    });
 
     const unsubAppointments = onSnapshot(appointmentsQuery, (snapshot) => {
       const appointments: Appointment[] = snapshot.docs
@@ -907,42 +926,42 @@ export default function Component() {
           id: doc.id,
           ...doc.data()
         } as Appointment))
-        .filter(apt => isAfter(parseISO(apt.date), today))
+        .filter(apt => isAfter(parseISO(apt.date), today));
 
-      setStats(prev => ({ ...prev, upcomingAppointments: appointments.length }))
-      setData(prev => ({ ...prev, recentAppointments: appointments }))
-    })
+      setStats(prev => ({ ...prev, upcomingAppointments: appointments.length }));
+      setData(prev => ({ ...prev, recentAppointments: appointments }));
+    });
 
     const unsubMedications = onSnapshot(medicationsQuery, (snapshot) => {
-      const medications: Medication[] = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Medication))
+      const medications: Medication[] = snapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Medication))
+        .filter(med => med.nextDueDate && isAfter(parseISO(med.nextDueDate), today));
 
       setStats(prev => ({ 
         ...prev, 
         dueMedications: medications.length,
-        healthAlerts: medications.filter(med => 
-          isAfter(parseISO(med.nextDueDate), today)
-        ).length
-      }))
-      setData(prev => ({ ...prev, recentMedications: medications }))
-      setIsLoading(false)
-    })
+        healthAlerts: medications.length + (data.recentAppointments?.length || 0)
+      }));
+      setData(prev => ({ ...prev, recentMedications: medications }));
+      setIsLoading(false);
+    });
 
     return () => {
-      unsubPets()
-      unsubAppointments()
-      unsubMedications()
-    }
-  }, [user])
+      unsubPets();
+      unsubAppointments();
+      unsubMedications();
+    };
+  }, [user]);
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-2rem)]">
         <Loading size={32} />
       </div>
-    )
+    );
   }
 
   return (
@@ -974,7 +993,7 @@ export default function Component() {
         </Card>
         <Card>
           <CardContent className="flex flex-col items-center justify-center p-6">
-            <Clock className="h-8 w-8 mb-2 text-primary" />
+            <Pill className="h-8 w-8 mb-2 text-primary" />
             <p className="text-2xl font-bold">{stats.dueMedications}</p>
             <p className="text-sm text-muted-foreground">Due Medications</p>
           </CardContent>
@@ -1009,23 +1028,29 @@ export default function Component() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {data.recentPets.map((pet) => (
-                <Card key={pet.id} className="cursor-pointer hover:bg-accent transition-colors" onClick={() => router.push(`/pets/${pet.id}`)}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-1 space-y-1">
-                        <h3 className="text-lg font-semibold">{pet.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {capitalizeFirst(pet.species)} • {pet.breed ? capitalizeFirst(pet.breed) : 'No breed specified'}
-                        </p>
+            <ScrollArea className="h-[calc(100vh-24rem)]">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {data.recentPets.map((pet) => (
+                  <Card 
+                    key={pet.id} 
+                    className="cursor-pointer hover:bg-accent transition-colors" 
+                    onClick={() => router.push(`/pets/${pet.id}`)}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-center space-x-4">
+                        <div className="flex-1 space-y-1">
+                          <h3 className="text-lg font-semibold">{pet.name}</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {capitalizeFirst(pet.species)} • {pet.breed ? capitalizeFirst(pet.breed) : 'No breed specified'}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-5 w-5 text-primary" />
                       </div>
-                      <ArrowRight className="h-5 w-5 text-primary" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
           )}
         </TabsContent>
         <TabsContent value="appointments">
@@ -1037,19 +1062,31 @@ export default function Component() {
                   <p className="text-lg">No upcoming appointments</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {data.recentAppointments.map((apt) => (
-                    <div key={apt.id} className="flex justify-between items-center p-4 bg-accent rounded-lg">
-                      <div>
-                        <p className="font-semibold">{capitalizeWords(apt.type)}</p>
-                        <p className="text-sm text-muted-foreground">{format(parseISO(apt.date), 'PPP')}</p>
+                <ScrollArea className="h-[calc(100vh-24rem)]">
+                  <div className="space-y-4">
+                    {data.recentAppointments.map((apt) => (
+                      <div 
+                        key={apt.id} 
+                        className="flex justify-between items-center p-4 bg-accent rounded-lg cursor-pointer hover:bg-accent/70"
+                        onClick={() => router.push(`/pets/${apt.petId}/appointments`)}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge>{capitalizeWords(apt.type)}</Badge>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-muted-foreground">{apt.petName}</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {format(parseISO(apt.date), 'PPP')} at {format(parseISO(`2000-01-01T${apt.time}`), 'h:mm a')}
+                          </p>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          View
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/pets/${apt.petId}/appointments`)}>
-                        View
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
             </CardContent>
           </Card>
@@ -1059,30 +1096,47 @@ export default function Component() {
             <CardContent className="p-6">
               {data.recentMedications.length === 0 ? (
                 <div className="text-center py-4">
-                  <Clock className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <Pill className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                   <p className="text-lg">No medications due</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {data.recentMedications.map((med) => (
-                    <div key={med.id} className="flex justify-between items-center p-4 bg-accent rounded-lg">
-                      <div>
-                        <p className="font-semibold">{med.name}</p>
-                        <p className="text-sm text-muted-foreground">Due: {format(parseISO(med.nextDueDate), 'PPP')}</p>
+                <ScrollArea className="h-[calc(100vh-24rem)]">
+                  <div className="space-y-4">
+                    {data.recentMedications.map((med) => (
+                      <div 
+                        key={med.id} 
+                        className="flex justify-between items-center p-4 bg-accent rounded-lg cursor-pointer hover:bg-accent/70"
+                        onClick={() => router.push(`/pets/${med.petId}/medications`)}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge variant={med.type === 'medication' ? 'default' : med.type === 'vaccination' ? 'secondary' : 'outline'}>
+                              {capitalizeFirst(med.type)}
+                            </Badge>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="text-muted-foreground">{med.petName}</span>
+                          </div>
+                          <p className="font-medium">{med.name}</p>
+                          {med.nextDueDate && (
+                            <p className="text-sm text-muted-foreground">
+                              Due: {format(parseISO(med.nextDueDate), 'PPP')}
+                            </p>
+                          )}
+                        </div>
+                        <Button variant="outline" size="sm">
+                          View
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => router.push(`/pets/${med.petId}/medications`)}>
-                        View
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
-  )
+  );
 }
 
 ========================================
@@ -1266,9 +1320,9 @@ app/(protected)/pets/[id]/pet-overview-client.tsx
 ========================================
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { doc, getDoc, collection, query, where, limit, onSnapshot, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { Pet, Appointment, MedicalRecord, WeightRecord } from '@/types';
 import { useAuth } from '@/lib/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1276,14 +1330,16 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { Calendar, Pill, Weight, Edit, Cake, PawPrint, Clock } from 'lucide-react';
-import { EditPetDialog } from "@/components/EditPetDialog";
-import { capitalizeFirst } from "@/lib/utils";
-import { parseISO, format, formatDistanceToNow, isAfter, startOfDay } from 'date-fns';
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
+import { useToast } from "@/hooks/use-toast";
+import { Calendar, Pill, Weight, Edit, Cake, PawPrint, Clock, AlertCircle } from 'lucide-react';
+import { EditPetDialog } from "@/components/EditPetDialog";
+import { AddMedicationDialog } from "@/components/AddMedicationDialog";
+import { capitalizeFirst, capitalizeWords } from '@/lib/utils';
+import { parseISO, format, formatDistanceToNow, isAfter, startOfDay } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
 
 interface PetOverviewClientProps {
   petId: string;
@@ -1332,6 +1388,8 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
           collection(db, 'medications'),
           where('petId', '==', petId),
           where('userId', '==', user.uid),
+          where('status', '==', 'active'),
+          orderBy('nextDueDate', 'asc'),
           limit(3)
         );
 
@@ -1357,9 +1415,21 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
         const unsubMedications = onSnapshot(medicationsQuery, (snapshot) => {
           const medications: MedicalRecord[] = [];
           snapshot.forEach((doc) => {
-            medications.push({ id: doc.id, ...doc.data() } as MedicalRecord);
+            const data = doc.data();
+            medications.push({
+              id: doc.id,
+              ...data,
+              createdAt: data.createdAt instanceof Timestamp 
+                ? data.createdAt.toDate().toISOString()
+                : data.createdAt,
+              updatedAt: data.updatedAt instanceof Timestamp 
+                ? data.updatedAt.toDate().toISOString()
+                : data.updatedAt,
+            } as MedicalRecord);
           });
-          setRecentMedications(medications);
+          setRecentMedications(medications.filter(med => 
+            med.nextDueDate && isAfter(parseISO(med.nextDueDate), today)
+          ));
         });
 
         const unsubWeights = onSnapshot(weightQuery, (snapshot) => {
@@ -1491,6 +1561,9 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{recentMedications.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {recentMedications.length === 1 ? 'medication' : 'medications'} due
+            </p>
           </CardContent>
         </Card>
 
@@ -1580,39 +1653,88 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
         </TabsContent>
 
         <TabsContent value="medications" className="space-y-4">
-          <div className="grid gap-4">
-            {recentMedications.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                  <Pill className="h-8 w-8 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium">No medications</p>
-                  <p className="text-sm text-muted-foreground">
-                    No current medications recorded
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              recentMedications.map((medication) => (
-                <Card key={medication.id}>
-                  <CardContent className="pt-6">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-semibold">{medication.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(medication.date)}
-                        </p>
-                      </div>
-                      {medication.prescribedBy && (
-                        <p className="text-sm text-muted-foreground">
-                          Prescribed by: {medication.prescribedBy}
-                        </p>
-                      )}
-                    </div>
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Current Medications</h2>
+            <AddMedicationDialog petId={pet.id} petName={pet.name}>
+              <Button>
+                <Pill className="mr-2 h-4 w-4" />
+                Add Medication
+              </Button>
+            </AddMedicationDialog>
+          </div>
+          <ScrollArea className="h-[calc(100vh-24rem)]">
+            <div className="grid gap-4">
+              {recentMedications.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                    <Pill className="h-8 w-8 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium">No active medications</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Add medications or treatments for your pet
+                    </p>
+                    <AddMedicationDialog petId={pet.id} petName={pet.name}>
+                      <Button>
+                        <Pill className="mr-2 h-4 w-4" />
+                        Add Medication
+                      </Button>
+                    </AddMedicationDialog>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
+              ) : (
+                recentMedications.map((medication) => (
+                  <Card key={medication.id} className="cursor-pointer hover:bg-accent/50">
+                    <CardContent className="flex justify-between items-center p-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={medication.type === 'medication' ? 'default' : 
+                            medication.type === 'vaccination' ? 'secondary' : 'outline'}>
+                            {capitalizeFirst(medication.type)}
+                          </Badge>
+                          {medication.status && (
+                            <Badge variant="outline">
+                              {capitalizeFirst(medication.status)}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="font-medium">{medication.name}</p>
+                        {medication.nextDueDate && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Due: {format(parseISO(medication.nextDueDate), 'PPP')}
+                          </p>
+                        )}
+                        {medication.prescribedBy && (
+                          <p className="text-sm text-muted-foreground">
+                            Prescribed by: {medication.prescribedBy}
+                          </p>
+                        )}
+                        {medication.notes && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-help">
+                                <AlertCircle className="h-4 w-4" />
+                                <span className="truncate max-w-[300px]">{medication.notes}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-[300px] whitespace-normal">{medication.notes}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => router.push(`/pets/${pet.id}/medications`)}
+                      >
+                        View Details
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </TabsContent>
 
         <TabsContent value="weight" className="space-y-4">
@@ -1949,18 +2071,261 @@ export default function FeedingSchedulePage() {
 
 
 ========================================
+app/(protected)/pets/[id]/medications/medications-client.tsx
+========================================
+// app/(protected)/pets/[id]/medications/medications-client.tsx
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/lib/context/auth-context';
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  onSnapshot,
+  doc,
+  getDoc,
+  Timestamp,
+} from 'firebase/firestore';
+import { format, isAfter, parseISO } from 'date-fns';
+import { Plus, Pill } from 'lucide-react';
+import { MedicalRecord } from '@/types';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AddMedicationDialog } from '@/components/AddMedicationDialog';
+import { MedicationCard } from '@/components/MedicationCard';
+import { useToast } from '@/hooks/use-toast';
+import { Loading } from '@/components/ui/loading';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface MedicationsClientProps {
+  petId: string;
+}
+
+export function MedicationsClient({ petId }: MedicationsClientProps) {
+  const [medications, setMedications] = useState<MedicalRecord[]>([]);
+  const [petName, setPetName] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!user || !petId) return;
+
+    // First verify pet ownership and get pet name
+    const verifyPetOwnership = async () => {
+      try {
+        const petDoc = await getDoc(doc(db, 'pets', petId));
+        if (!petDoc.exists() || petDoc.data()?.userId !== user.uid) {
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Pet not found or access denied.",
+          });
+          router.push('/dashboard');
+          return false;
+        }
+        setPetName(petDoc.data().name);
+        return true;
+      } catch (error) {
+        console.error('Error verifying pet ownership:', error);
+        return false;
+      }
+    };
+
+    const setupMedications = async () => {
+      const hasAccess = await verifyPetOwnership();
+      if (!hasAccess) return;
+
+      const medicationsQuery = query(
+        collection(db, 'medications'),
+        where('petId', '==', petId),
+        where('userId', '==', user.uid),
+        orderBy('date', 'desc')
+      );
+
+      const unsubscribe = onSnapshot(
+        medicationsQuery,
+        (snapshot) => {
+          const medicationsData: MedicalRecord[] = [];
+          snapshot.forEach((doc) => {
+            medicationsData.push({ 
+              id: doc.id,
+              ...doc.data(),
+              // Convert Firestore Timestamps to strings
+              createdAt: doc.data().createdAt instanceof Timestamp 
+                ? doc.data().createdAt.toDate().toISOString()
+                : doc.data().createdAt,
+              updatedAt: doc.data().updatedAt instanceof Timestamp 
+                ? doc.data().updatedAt.toDate().toISOString()
+                : doc.data().updatedAt,
+            } as MedicalRecord);
+          });
+          setMedications(medicationsData);
+          setIsLoading(false);
+        },
+        (error) => {
+          console.error('Error fetching medications:', error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not load medications. Please try again."
+          });
+          setIsLoading(false);
+        }
+      );
+
+      return () => unsubscribe();
+    };
+
+    setupMedications();
+  }, [petId, user, toast, router]);
+
+  const activeMedications = medications.filter(
+    med => med.status === 'active' && (!med.nextDueDate || isAfter(parseISO(med.nextDueDate), new Date()))
+  );
+
+  const pastMedications = medications.filter(
+    med => med.status !== 'active' || (med.nextDueDate && !isAfter(parseISO(med.nextDueDate), new Date()))
+  );
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loading size={32} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-8">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold">Medications</h1>
+          <p className="text-muted-foreground">
+            Manage your pet's medications and treatments
+          </p>
+        </div>
+        <AddMedicationDialog petId={petId} petName={petName}>
+          <Button>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Medication
+          </Button>
+        </AddMedicationDialog>
+      </div>
+
+      <Tabs defaultValue="active" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="active">
+            Active ({activeMedications.length})
+          </TabsTrigger>
+          <TabsTrigger value="past">
+            Past ({pastMedications.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="active">
+          <ScrollArea className="h-[calc(100vh-16rem)]">
+            <div className="space-y-4">
+              {activeMedications.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                    <Pill className="h-8 w-8 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium">No active medications</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Add a new medication for your pet
+                    </p>
+                    <AddMedicationDialog petId={petId} petName={petName}>
+                      <Button>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Medication
+                      </Button>
+                    </AddMedicationDialog>
+                  </CardContent>
+                </Card>
+              ) : (
+                activeMedications.map((medication) => (
+                  <MedicationCard 
+                    key={medication.id}
+                    medication={medication}
+                    isActive={true}
+                  />
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+
+        <TabsContent value="past">
+          <ScrollArea className="h-[calc(100vh-16rem)]">
+            <div className="space-y-4">
+              {pastMedications.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                    <Pill className="h-8 w-8 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium">No past medications</p>
+                    <p className="text-sm text-muted-foreground">
+                      Past and completed medications will appear here
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                pastMedications.map((medication) => (
+                  <MedicationCard 
+                    key={medication.id}
+                    medication={medication}
+                    isActive={false}
+                  />
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+========================================
 app/(protected)/pets/[id]/medications/page.tsx
 ========================================
-// app/pets/[id]/medications/page.tsx
+// app/(protected)/pets/[id]/medications/page.tsx
+import { Suspense } from 'react';
+import { MedicationsClient } from './medications-client';
+import { Loading } from '@/components/ui/loading';
+
+interface MedicationsPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default function MedicationsPage({ params }: MedicationsPageProps) {
+  return (
+    <Suspense fallback={<Loading />}>
+      <MedicationsClient petId={params.id} />
+    </Suspense>
+  );
+}
+
+========================================
+app/(protected)/pets/[id]/notes/page.tsx
+========================================
+// app/pets/[id]/notes/page.tsx
 
 'use client';
 
 import React from 'react';
 
-export default function MedicationsPage() {
+export default function NotesPage() {
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold">Medications</h1>
+      <h1 className="text-2xl font-bold">Notes</h1>
       <p className="mt-4 text-gray-600">Coming soon...</p>
     </div>
   );
