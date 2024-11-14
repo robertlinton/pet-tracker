@@ -1,18 +1,17 @@
-// app/(protected)/pets/[id]/medications/page.tsx
 import { Suspense } from 'react';
 import { MedicationsClient } from './medications-client';
 import { Loading } from '@/components/ui/loading';
 
-interface MedicationsPageProps {
-  params: {
-    id: string;
-  }
+interface PageProps {
+  params: { id: string }
 }
 
-export default async function MedicationsPage({ params }: MedicationsPageProps) {
+export default async function MedicationsPage({ params }: PageProps) {
+  const id = params.id;
+
   return (
     <Suspense fallback={<Loading />}>
-      <MedicationsClient petId={params.id} />
+      <MedicationsClient petId={id} />
     </Suspense>
   );
 }
