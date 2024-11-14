@@ -7,11 +7,9 @@ interface MedicationsPageProps {
   params: {
     id: string;
   }
-  searchParams: {
-    [key: string]: string | string[] | undefined;
-  }
 }
-export default function MedicationsPage({ params }: MedicationsPageProps) {
+
+export default async function MedicationsPage({ params }: MedicationsPageProps) {
   return (
     <Suspense fallback={<Loading />}>
       <MedicationsClient petId={params.id} />
