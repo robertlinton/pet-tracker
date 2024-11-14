@@ -2,8 +2,6 @@ import os
 
 # List of file paths
 file_paths = [
-    "combine.py",
-    "components.json",
     "middleware.ts",
     "app/layout.tsx",
     "app/not-found.tsx",

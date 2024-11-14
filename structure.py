@@ -9,7 +9,7 @@ def generate_folder_layout(start_path, output_file):
         'firestore.rules', 'storage.rules', 'tailwind.config.ts', 
         'tsconfig.json', 'postcss.config.mjs', 'next-env.d.ts',
         '.env.development.local', 'database.rules.json', 'firebase.json',
-        'folder_structure.txt', 'next.config.ts', 'structure.py'
+        'folder_structure.txt', 'next.config.ts', 'structure.py',"combine.py", "components.json"
     }
     
     with open(output_file, 'w') as f:

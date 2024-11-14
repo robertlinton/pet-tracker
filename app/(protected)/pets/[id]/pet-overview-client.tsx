@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { doc, getDoc, collection, query, where, limit, onSnapshot, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { doc, getDoc, collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { Pet, Appointment, MedicalRecord, WeightRecord } from '@/types';
 import { useAuth } from '@/lib/context/auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,14 +10,16 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { Calendar, Pill, Weight, Edit, Cake, PawPrint, Clock } from 'lucide-react';
-import { EditPetDialog } from "@/components/EditPetDialog";
-import { capitalizeFirst } from "@/lib/utils";
-import { parseISO, format, formatDistanceToNow, isAfter, startOfDay } from 'date-fns';
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
+import { useToast } from "@/hooks/use-toast";
+import { Calendar, Pill, Weight, Edit, Cake, PawPrint, Clock, AlertCircle } from 'lucide-react';
+import { EditPetDialog } from "@/components/EditPetDialog";
+import { AddMedicationDialog } from "@/components/AddMedicationDialog";
+import { capitalizeFirst, capitalizeWords } from '@/lib/utils';
+import { parseISO, format, formatDistanceToNow, isAfter, startOfDay } from 'date-fns';
 import { useRouter } from 'next/navigation';
+import { AddAppointmentDialog } from '@/components/AddAppointmentDialog';
 
 interface PetOverviewClientProps {
   petId: string;
@@ -66,6 +68,8 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
           collection(db, 'medications'),
           where('petId', '==', petId),
           where('userId', '==', user.uid),
+          where('status', '==', 'active'),
+          orderBy('nextDueDate', 'asc'),
           limit(3)
         );
 
@@ -91,9 +95,21 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
         const unsubMedications = onSnapshot(medicationsQuery, (snapshot) => {
           const medications: MedicalRecord[] = [];
           snapshot.forEach((doc) => {
-            medications.push({ id: doc.id, ...doc.data() } as MedicalRecord);
+            const data = doc.data();
+            medications.push({
+              id: doc.id,
+              ...data,
+              createdAt: data.createdAt instanceof Timestamp 
+                ? data.createdAt.toDate().toISOString()
+                : data.createdAt,
+              updatedAt: data.updatedAt instanceof Timestamp 
+                ? data.updatedAt.toDate().toISOString()
+                : data.updatedAt,
+            } as MedicalRecord);
           });
-          setRecentMedications(medications);
+          setRecentMedications(medications.filter(med => 
+            med.nextDueDate && isAfter(parseISO(med.nextDueDate), today)
+          ));
         });
 
         const unsubWeights = onSnapshot(weightQuery, (snapshot) => {
@@ -225,6 +241,9 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{recentMedications.length}</div>
+            <p className="text-xs text-muted-foreground">
+              {recentMedications.length === 1 ? 'medication' : 'medications'} due
+            </p>
           </CardContent>
         </Card>
 
@@ -314,39 +333,88 @@ export function PetOverviewClient({ petId }: PetOverviewClientProps) {
         </TabsContent>
 
         <TabsContent value="medications" className="space-y-4">
-          <div className="grid gap-4">
-            {recentMedications.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-8 text-center">
-                  <Pill className="h-8 w-8 text-muted-foreground mb-4" />
-                  <p className="text-lg font-medium">No medications</p>
-                  <p className="text-sm text-muted-foreground">
-                    No current medications recorded
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              recentMedications.map((medication) => (
-                <Card key={medication.id}>
-                  <CardContent className="pt-6">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <h3 className="font-semibold">{medication.name}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(medication.date)}
-                        </p>
-                      </div>
-                      {medication.prescribedBy && (
-                        <p className="text-sm text-muted-foreground">
-                          Prescribed by: {medication.prescribedBy}
-                        </p>
-                      )}
-                    </div>
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Current Medications</h2>
+            <AddMedicationDialog petId={pet.id} petName={pet.name}>
+              <Button>
+                <Pill className="mr-2 h-4 w-4" />
+                Add Medication
+              </Button>
+            </AddMedicationDialog>
+          </div>
+          <ScrollArea className="h-[calc(100vh-24rem)]">
+            <div className="grid gap-4">
+              {recentMedications.length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                    <Pill className="h-8 w-8 text-muted-foreground mb-4" />
+                    <p className="text-lg font-medium">No active medications</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Add medications or treatments for your pet
+                    </p>
+                    <AddMedicationDialog petId={pet.id} petName={pet.name}>
+                      <Button>
+                        <Pill className="mr-2 h-4 w-4" />
+                        Add Medication
+                      </Button>
+                    </AddMedicationDialog>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
+              ) : (
+                recentMedications.map((medication) => (
+                  <Card key={medication.id} className="cursor-pointer hover:bg-accent/50">
+                    <CardContent className="flex justify-between items-center p-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={medication.type === 'medication' ? 'default' : 
+                            medication.type === 'vaccination' ? 'secondary' : 'outline'}>
+                            {capitalizeFirst(medication.type)}
+                          </Badge>
+                          {medication.status && (
+                            <Badge variant="outline">
+                              {capitalizeFirst(medication.status)}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="font-medium">{medication.name}</p>
+                        {medication.nextDueDate && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Due: {format(parseISO(medication.nextDueDate), 'PPP')}
+                          </p>
+                        )}
+                        {medication.prescribedBy && (
+                          <p className="text-sm text-muted-foreground">
+                            Prescribed by: {medication.prescribedBy}
+                          </p>
+                        )}
+                        {medication.notes && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground cursor-help">
+                                <AlertCircle className="h-4 w-4" />
+                                <span className="truncate max-w-[300px]">{medication.notes}</span>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="max-w-[300px] whitespace-normal">{medication.notes}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => router.push(`/pets/${pet.id}/medications`)}
+                      >
+                        View Details
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </TabsContent>
 
         <TabsContent value="weight" className="space-y-4">

@@ -1,14 +1,18 @@
-// app/pets/[id]/medications/page.tsx
+// app/(protected)/pets/[id]/medications/page.tsx
+import { Suspense } from 'react';
+import { MedicationsClient } from './medications-client';
+import { Loading } from '@/components/ui/loading';
 
-'use client';
+interface MedicationsPageProps {
+  params: {
+    id: string;
+  };
+}
 
-import React from 'react';
-
-export default function MedicationsPage() {
+export default function MedicationsPage({ params }: MedicationsPageProps) {
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold">Medications</h1>
-      <p className="mt-4 text-gray-600">Coming soon...</p>
-    </div>
+    <Suspense fallback={<Loading />}>
+      <MedicationsClient petId={params.id} />
+    </Suspense>
   );
 }
