@@ -8,8 +8,8 @@ import * as z from "zod";
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Upload, X, PlusCircle } from 'lucide-react';
-import type { PutBlobResult } from '@vercel/blob';
 import { useAuth } from '@/lib/context/auth-context';
+import { uploadPetImage } from '@/lib/storage';
 
 import {
   Dialog,
@@ -77,6 +77,26 @@ export function AddPetDialog({ children }: AddPetDialogProps) {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (e.g., limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "File too large",
+          description: "Please select an image under 5MB",
+        });
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          variant: "destructive",
+          title: "Invalid file type",
+          description: "Please select an image file",
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result as string);
@@ -90,23 +110,6 @@ export function AddPetDialog({ children }: AddPetDialogProps) {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
-
-  const handleImageUpload = async (file: File): Promise<string> => {
-    const response = await fetch(
-      `/api/pets/upload?filename=${file.name}`,
-      {
-        method: 'POST',
-        body: file,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to upload image');
-    }
-
-    const newBlob = await response.json() as PutBlobResult;
-    return newBlob.url;
   };
 
   const onSubmit = async (data: FormData) => {
@@ -123,12 +126,22 @@ export function AddPetDialog({ children }: AddPetDialogProps) {
       setIsLoading(true);
       
       // Handle image upload if one was selected
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const fileInput = fileInputRef.current;
       const imageFile = fileInput?.files?.[0];
       
       let imageUrl = null;
       if (imageFile) {
-        imageUrl = await handleImageUpload(imageFile);
+        try {
+          imageUrl = await uploadPetImage(imageFile, user.uid);
+        } catch (error) {
+          console.error('Error uploading image:', error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to upload image. Please try again.",
+          });
+          return;
+        }
       }
 
       // Add pet document

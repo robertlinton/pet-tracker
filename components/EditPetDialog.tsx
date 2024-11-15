@@ -9,7 +9,7 @@ import { doc, updateDoc, deleteDoc, getDoc, serverTimestamp } from 'firebase/fir
 import { db } from '@/lib/firebase';
 import { Pet } from '@/types';
 import { Edit, Upload, X } from 'lucide-react';
-import type { PutBlobResult } from '@vercel/blob';
+import { uploadPetImage, deletePetImage } from '@/lib/storage';
 import { capitalizeFirst } from "@/lib/utils";
 import { useAuth } from '@/lib/context/auth-context';
 
@@ -94,6 +94,26 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "File too large",
+          description: "Please select an image under 5MB",
+        });
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast({
+          variant: "destructive",
+          title: "Invalid file type",
+          description: "Please select an image file",
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result as string);
@@ -103,8 +123,22 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
   };
 
   const removeImage = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "You must be logged in to update pet information.",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
+      
+      // Delete the image from Firebase Storage if it exists
+      if (pet.imageUrl) {
+        await deletePetImage(pet.imageUrl);
+      }
       
       // Update pet document to remove imageUrl
       const petRef = doc(db, 'pets', pet.id);
@@ -139,23 +173,6 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
     }
   };
 
-  const handleImageUpload = async (file: File): Promise<string> => {
-    const response = await fetch(
-      `/api/pets/upload?filename=${file.name}`,
-      {
-        method: 'POST',
-        body: file,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Failed to upload image');
-    }
-
-    const newBlob = await response.json() as PutBlobResult;
-    return newBlob.url;
-  };
-
   const onSubmit = async (data: FormData) => {
     if (!user) {
       toast({
@@ -178,12 +195,27 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
       }
       
       // Handle image upload if a new image was selected
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const fileInput = fileInputRef.current;
       const imageFile = fileInput?.files?.[0];
       
       let imageUrl = previewImage;
       if (imageFile) {
-        imageUrl = await handleImageUpload(imageFile);
+        try {
+          // Delete old image if it exists
+          if (pet.imageUrl) {
+            await deletePetImage(pet.imageUrl);
+          }
+          // Upload new image
+          imageUrl = await uploadPetImage(imageFile, user.uid);
+        } catch (error) {
+          console.error('Error handling image:', error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to update image. Please try again.",
+          });
+          return;
+        }
       }
 
       const updatedData = {
@@ -238,7 +270,13 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
       if (!petDoc.exists() || petDoc.data()?.userId !== user.uid) {
         throw new Error('Unauthorized to delete this pet');
       }
+
+      // Delete the image from storage if it exists
+      if (pet.imageUrl) {
+        await deletePetImage(pet.imageUrl);
+      }
       
+      // Delete the pet document
       await deleteDoc(petRef);
       
       toast({
@@ -279,7 +317,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="flex flex-col items-center gap-4">
                 <Avatar className="h-24 w-24">
-                  {previewImage && previewImage !== '' ? (
+                  {previewImage ? (
                     <AvatarImage src={previewImage} alt="Preview" />
                   ) : (
                     <AvatarFallback>
@@ -314,11 +352,7 @@ export function EditPetDialog({ pet, children, onPetUpdate }: EditPetDialogProps
                       onClick={removeImage}
                       disabled={isLoading}
                     >
-                      {isLoading ? (
-                        <Loading size={16} />
-                      ) : (
-                        <X className="h-4 w-4" />
-                      )}
+                      <X className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
