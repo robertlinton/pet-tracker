@@ -71,6 +71,16 @@ interface DashboardData {
   recentMedications: Medication[];
 }
 
+// Helper function to safely parse dates
+const safeParseDate = (dateString: string) => {
+  try {
+    const parsedDate = parseISO(dateString);
+    return isNaN(parsedDate.getTime()) ? null : parsedDate;
+  } catch {
+    return null;
+  };
+};
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
@@ -131,7 +141,10 @@ export default function DashboardPage() {
           id: doc.id,
           ...doc.data()
         } as Appointment))
-        .filter(apt => isAfter(parseISO(apt.date), today));
+        .filter(apt => {
+          const aptDate = safeParseDate(apt.date);
+          return aptDate && isAfter(aptDate, today);
+        });
 
       setStats(prev => ({ ...prev, upcomingAppointments: appointments.length }));
       setData(prev => ({ ...prev, recentAppointments: appointments }));
@@ -146,9 +159,10 @@ export default function DashboardPage() {
       setStats(prev => ({ 
         ...prev, 
         dueMedications: medications.length,
-        healthAlerts: medications.filter(med => 
-          isAfter(parseISO(med.nextDueDate), today)
-        ).length
+        healthAlerts: medications.filter(med => {
+          const dueDate = safeParseDate(med.nextDueDate);
+          return dueDate && isAfter(dueDate, today);
+        }).length
       }));
       setData(prev => ({ ...prev, recentMedications: medications }));
       setIsLoading(false);
@@ -296,23 +310,26 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {data.recentAppointments.map((apt) => (
-                  <div key={apt.id} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{capitalizeWords(apt.type)}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {format(parseISO(apt.date), 'PPP')}
-                      </p>
+                {data.recentAppointments.map((apt) => {
+                  const aptDate = safeParseDate(apt.date);
+                  return (
+                    <div key={apt.id} className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">{capitalizeWords(apt.type)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {aptDate ? format(aptDate, 'PPP') : 'Invalid date'}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/pets/${apt.petId}/appointments`)}
+                      >
+                        View
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`/pets/${apt.petId}/appointments`)}
-                    >
-                      View
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -330,23 +347,26 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {data.recentMedications.map((med) => (
-                  <div key={med.id} className="flex justify-between items-center">
-                    <div>
-                      <p className="font-medium">{med.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Due: {format(parseISO(med.nextDueDate), 'PPP')}
-                      </p>
+                {data.recentMedications.map((med) => {
+                  const medDate = safeParseDate(med.nextDueDate);
+                  return (
+                    <div key={med.id} className="flex justify-between items-center">
+                      <div>
+                        <p className="font-medium">{med.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {medDate ? `Due: ${format(medDate, 'PPP')}` : 'Invalid date'}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/pets/${med.petId}/medications`)}
+                      >
+                        View
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`/pets/${med.petId}/medications`)}
-                    >
-                      View
-                    </Button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
