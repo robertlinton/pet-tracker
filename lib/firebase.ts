@@ -1,9 +1,9 @@
 // lib/firebase.ts
-// Update the exports to include storage
 import { initializeApp, getApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
+import { getVertexAI, getGenerativeModel } from "firebase/vertexai";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,9 +14,14 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Initialize Firebase
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 
-export { app, db, auth, storage };
+// Initialize Vertex AI
+const vertexAI = getVertexAI(app);
+const geminiModel = getGenerativeModel(vertexAI, { model: "gemini-1.5-flash" });
+
+export { app, db, auth, storage, geminiModel };
